@@ -1,0 +1,1906 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 小说创作平台 - 原型</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #1e1e1e;
+            --bg-secondary: #252526;
+            --bg-tertiary: #2d2d30;
+            --bg-hover: #37373d;
+            --text-primary: #cccccc;
+            --text-secondary: #858585;
+            --text-active: #ffffff;
+            --accent-color: #007acc;
+            --accent-hover: #0098ff;
+            --border-color: #3e3e42;
+            --success-color: #4ec9b0;
+            --warning-color: #ce9178;
+            --sidebar-width: 280px;
+            --chat-width: 380px;
+            --header-height: 48px;
+            --status-height: 28px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            font-size: 14px;
+        }
+
+        /* 顶部导航栏 */
+        .top-nav {
+            height: var(--header-height);
+            background-color: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            justify-content: space-between;
+        }
+
+        .nav-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .logo {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--accent-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logo-icon {
+            width: 28px;
+            height: 28px;
+            background: linear-gradient(135deg, var(--accent-color), var(--accent-hover));
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .menu-bar {
+            display: flex;
+            gap: 4px;
+        }
+
+        .menu-item {
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 13px;
+        }
+
+        .menu-item:hover {
+            background-color: var(--bg-hover);
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .search-box {
+            background-color: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 6px 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            cursor: pointer;
+            min-width: 200px;
+        }
+
+        .search-box:hover {
+            border-color: var(--accent-color);
+        }
+
+        .icon-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .icon-btn:hover {
+            background-color: var(--bg-hover);
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-color), var(--success-color));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        /* 主布局 */
+        .main-layout {
+            display: flex;
+            height: calc(100vh - var(--header-height) - var(--status-height));
+        }
+
+        /* 左侧目录区 */
+        .sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .project-name {
+            font-weight: 600;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .project-name::before {
+            content: '📚';
+        }
+
+        .sidebar-actions {
+            display: flex;
+            gap: 4px;
+        }
+
+        .sidebar-actions .icon-btn {
+            width: 24px;
+            height: 24px;
+            font-size: 12px;
+        }
+
+        .file-tree {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+
+        .tree-section {
+            margin-bottom: 4px;
+        }
+
+        .section-header {
+            padding: 6px 16px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        .section-header:hover {
+            color: var(--text-primary);
+        }
+
+        .tree-item {
+            padding: 5px 16px 5px 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.15s;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .tree-item:hover {
+            background-color: var(--bg-hover);
+        }
+
+        .tree-item.active {
+            background-color: var(--accent-color);
+            color: var(--text-active);
+        }
+
+        .tree-item .icon {
+            font-size: 14px;
+            width: 16px;
+            text-align: center;
+        }
+
+        .tree-item.folder {
+            font-weight: 500;
+        }
+
+        .tree-item.indent-1 { padding-left: 40px; }
+        .tree-item.indent-2 { padding-left: 56px; }
+        .tree-item.indent-3 { padding-left: 72px; }
+
+        .tree-item .toggle {
+            font-size: 10px;
+            width: 12px;
+            opacity: 0.6;
+        }
+
+        /* 中间编辑区 */
+        .editor-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--bg-primary);
+        }
+
+        .tabs-bar {
+            height: 36px;
+            background-color: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: flex-end;
+            padding: 0 8px;
+            gap: 2px;
+            overflow-x: auto;
+        }
+
+        .tab {
+            padding: 8px 16px;
+            background-color: var(--bg-tertiary);
+            border-top: 1px solid var(--border-color);
+            border-left: 1px solid var(--border-color);
+            border-right: 1px solid var(--border-color);
+            border-radius: 4px 4px 0 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            white-space: nowrap;
+            position: relative;
+        }
+
+        .tab:hover {
+            background-color: var(--bg-hover);
+        }
+
+        .tab.active {
+            background-color: var(--bg-primary);
+            border-bottom: 1px solid var(--bg-primary);
+            margin-bottom: -1px;
+        }
+
+        .tab .close {
+            font-size: 12px;
+            opacity: 0.5;
+            margin-left: 4px;
+        }
+
+        .tab .close:hover {
+            opacity: 1;
+        }
+
+        .tab .unsaved {
+            width: 6px;
+            height: 6px;
+            background-color: var(--accent-color);
+            border-radius: 50%;
+        }
+
+        .editor-content {
+            flex: 1;
+            padding: 24px 32px;
+            overflow-y: auto;
+        }
+
+        .editor-toolbar {
+            height: 40px;
+            background-color: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 8px;
+        }
+
+        .toolbar-btn {
+            padding: 6px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .toolbar-btn:hover {
+            background-color: var(--bg-hover);
+        }
+
+        .toolbar-separator {
+            width: 1px;
+            height: 20px;
+            background-color: var(--border-color);
+            margin: 0 4px;
+        }
+
+        .document-content {
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.8;
+        }
+
+        .document-content h1 {
+            font-size: 28px;
+            margin-bottom: 20px;
+            color: var(--text-active);
+        }
+
+        .document-content h2 {
+            font-size: 20px;
+            margin-top: 24px;
+            margin-bottom: 12px;
+            color: var(--text-active);
+        }
+
+        .document-content p {
+            margin-bottom: 12px;
+            text-indent: 2em;
+        }
+
+        .document-content .scene-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-top: 20px;
+            margin-bottom: 8px;
+            color: var(--success-color);
+        }
+
+        .document-content .dialogue {
+            margin-left: 2em;
+            color: var(--text-secondary);
+        }
+
+        /* 右侧对话区 */
+        .chat-panel {
+            width: var(--chat-width);
+            background-color: var(--bg-secondary);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .agent-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .agent-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #9b59b6, #3498db);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .agent-name {
+            font-weight: 600;
+        }
+
+        .agent-status {
+            font-size: 12px;
+            color: var(--success-color);
+        }
+
+        .chat-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .context-badge {
+            padding: 4px 8px;
+            background-color: var(--bg-tertiary);
+            border-radius: 4px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .message {
+            display: flex;
+            gap: 10px;
+        }
+
+        .message.user {
+            flex-direction: row-reverse;
+        }
+
+        .message-bubble {
+            max-width: 85%;
+            padding: 12px 14px;
+            border-radius: 12px;
+            line-height: 1.6;
+        }
+
+        .message.user .message-bubble {
+            background-color: var(--accent-color);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.agent .message-bubble {
+            background-color: var(--bg-tertiary);
+            border-bottom-left-radius: 4px;
+        }
+
+        .message-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 6px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .message:hover .message-actions {
+            opacity: 1;
+        }
+
+        .message-action {
+            font-size: 12px;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+
+        .message-action:hover {
+            color: var(--text-primary);
+        }
+
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            padding: 12px;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--text-secondary);
+            border-radius: 50%;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-10px); }
+        }
+
+        .chat-input-area {
+            padding: 16px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .context-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .context-chip {
+            padding: 4px 8px;
+            background-color: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .context-chip .remove {
+            cursor: pointer;
+            opacity: 0.6;
+        }
+
+        .context-chip .remove:hover {
+            opacity: 1;
+        }
+
+        .input-box {
+            background-color: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .input-box textarea {
+            width: 100%;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-size: 14px;
+            resize: none;
+            outline: none;
+            min-height: 60px;
+            font-family: inherit;
+        }
+
+        .input-box textarea::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .input-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 8px;
+        }
+
+        .input-hint {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .send-btn {
+            padding: 6px 16px;
+            background-color: var(--accent-color);
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+
+        .send-btn:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .quick-action {
+            padding: 6px 12px;
+            background-color: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .quick-action:hover {
+            background-color: var(--bg-hover);
+            border-color: var(--accent-color);
+        }
+
+        /* 底部状态栏 */
+        .status-bar {
+            height: var(--status-height);
+            background-color: var(--accent-color);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            font-size: 12px;
+            color: white;
+            justify-content: space-between;
+        }
+
+        .status-left {
+            display: flex;
+            gap: 16px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        .status-item:hover {
+            background-color: rgba(255,255,255,0.1);
+        }
+
+        .status-right {
+            display: flex;
+            gap: 12px;
+        }
+
+        /* 模态框 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background-color: var(--bg-secondary);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            width: 90%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow: hidden;
+            transform: scale(0.95);
+            transition: transform 0.3s;
+        }
+
+        .modal-overlay.active .modal {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            font-size: 20px;
+            cursor: pointer;
+            opacity: 0.6;
+        }
+
+        .modal-close:hover {
+            opacity: 1;
+        }
+
+        .modal-content {
+            padding: 20px;
+            max-height: calc(80vh - 140px);
+            overflow-y: auto;
+        }
+
+        /* 版本控制界面 */
+        .version-control {
+            display: flex;
+            height: 500px;
+        }
+
+        .version-list {
+            width: 250px;
+            border-right: 1px solid var(--border-color);
+            overflow-y: auto;
+        }
+
+        .version-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .version-item:hover {
+            background-color: var(--bg-hover);
+        }
+
+        .version-item.active {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        .version-hash {
+            font-family: monospace;
+            font-size: 12px;
+            opacity: 0.7;
+        }
+
+        .version-message {
+            font-size: 13px;
+            margin-top: 4px;
+        }
+
+        .version-meta {
+            font-size: 11px;
+            opacity: 0.6;
+            margin-top: 4px;
+        }
+
+        .version-diff {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .diff-line {
+            padding: 2px 8px;
+            display: flex;
+        }
+
+        .diff-line.added {
+            background-color: rgba(78, 201, 176, 0.1);
+        }
+
+        .diff-line.removed {
+            background-color: rgba(206, 145, 120, 0.1);
+        }
+
+        .diff-line-num {
+            width: 40px;
+            text-align: right;
+            padding-right: 12px;
+            color: var(--text-secondary);
+            user-select: none;
+        }
+
+        .diff-line-marker {
+            width: 20px;
+            text-align: center;
+        }
+
+        .diff-line.added .diff-line-marker { color: var(--success-color); }
+        .diff-line.removed .diff-line-marker { color: var(--warning-color); }
+
+        .diff-content {
+            flex: 1;
+        }
+
+        /* 设置界面 */
+        .settings-container {
+            display: flex;
+            height: 500px;
+        }
+
+        .settings-sidebar {
+            width: 180px;
+            border-right: 1px solid var(--border-color);
+        }
+
+        .settings-category {
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .settings-category:hover {
+            background-color: var(--bg-hover);
+        }
+
+        .settings-category.active {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        .settings-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .setting-item {
+            margin-bottom: 24px;
+        }
+
+        .setting-label {
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .setting-description {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .setting-input {
+            width: 100%;
+            padding: 8px 12px;
+            background-color: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 13px;
+        }
+
+        .setting-input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        /* 代码编辑器样式 */
+        .code-editor-container {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+            background-color: var(--bg-primary);
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.8;
+        }
+
+        .line-numbers {
+            width: 50px;
+            background-color: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            padding: 16px 0;
+            text-align: right;
+            user-select: none;
+            overflow: hidden;
+        }
+
+        .line-num {
+            padding: 0 12px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            line-height: 1.8;
+        }
+
+        .line-num.active {
+            color: var(--accent-color);
+        }
+
+        .code-editor {
+            flex: 1;
+            padding: 16px 24px;
+            overflow-y: auto;
+            outline: none;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .code-line {
+            min-height: 1.8em;
+            position: relative;
+        }
+
+        .code-line:empty::before {
+            content: ' ';
+            display: inline-block;
+        }
+
+        /* Markdown 语法高亮 */
+        .md-heading {
+            color: #4ec9b0;
+            font-weight: bold;
+        }
+
+        .md-scene {
+            color: #ce9178;
+            font-weight: 600;
+        }
+
+        .md-dialogue {
+            color: #9cdcfe;
+        }
+
+        /* 选中样式 */
+        .code-editor ::selection {
+            background-color: rgba(0, 122, 204, 0.4);
+        }
+
+        /* 浮动工具栏 */
+        .floating-toolbar {
+            position: absolute;
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 4px;
+            display: flex;
+            gap: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 100;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s;
+        }
+
+        .floating-toolbar.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .floating-toolbar .toolbar-btn {
+            padding: 6px 10px;
+            font-size: 12px;
+        }
+
+        /* 快捷键提示 */
+        .shortcut-hint {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 10px 20px;
+            font-size: 13px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 200;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .shortcut-hint.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .key {
+            background-color: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        /* 对话区引用块样式 */
+        .message-bubble .reference-block {
+            background-color: rgba(0,0,0,0.2);
+            border-left: 3px solid var(--accent-color);
+            padding: 10px 12px;
+            margin-bottom: 12px;
+            border-radius: 0 4px 4px 0;
+            font-size: 13px;
+        }
+
+        .message-bubble .reference-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+
+        .message-bubble .reference-content {
+            color: var(--text-primary);
+            line-height: 1.6;
+            max-height: 100px;
+            overflow-y: auto;
+        }
+
+        /* 归档文件样式 */
+        .tree-item.archived {
+            opacity: 0.7;
+        }
+
+        .tree-item.archived:hover {
+            opacity: 1;
+        }
+
+        /* 滚动条样式 */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-secondary);
+        }
+
+        /* 搜索面板 */
+        .search-panel {
+            position: absolute;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 600px;
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            z-index: 500;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s;
+        }
+
+        .search-panel.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .search-input-container {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .search-input-container input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-size: 16px;
+            outline: none;
+        }
+
+        .search-input-container input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .search-results {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .search-result-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .search-result-item:hover {
+            background-color: var(--bg-hover);
+        }
+
+        .search-result-file {
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .search-result-preview {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .search-highlight {
+            background-color: rgba(0, 122, 204, 0.3);
+            color: var(--text-active);
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <nav class="top-nav">
+        <div class="nav-left">
+            <div class="logo">
+                <div class="logo-icon">✍</div>
+                <span>AI Writer Studio</span>
+            </div>
+            <div class="menu-bar">
+                <div class="menu-item">文件</div>
+                <div class="menu-item">编辑</div>
+                <div class="menu-item">视图</div>
+                <div class="menu-item">AI</div>
+                <div class="menu-item" onclick="showVersionModal()">版本</div>
+                <div class="menu-item">工具</div>
+                <div class="menu-item">帮助</div>
+            </div>
+        </div>
+        <div class="nav-right">
+            <div class="search-box" onclick="showSearchPanel()">
+                <span>🔍</span>
+                <span>搜索文件、命令...</span>
+                <span style="margin-left: auto; font-size: 11px;">⌘K</span>
+            </div>
+            <div class="icon-btn" onclick="showSettingsModal()">⚙</div>
+            <div class="user-avatar">作</div>
+        </div>
+    </nav>
+
+    <!-- 主布局 -->
+    <div class="main-layout">
+        <!-- 左侧目录区 -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="project-name">《仙道独尊》</div>
+                <div class="sidebar-actions">
+                    <div class="icon-btn" title="新建文件">+</div>
+                    <div class="icon-btn" title="刷新">↻</div>
+                    <div class="icon-btn" title="折叠全部">⇤</div>
+                </div>
+            </div>
+            <div class="file-tree">
+                <!-- 创作区 -->
+                <div class="tree-section">
+                    <div class="section-header">
+                        <span>▼</span>
+                        <span>创作区</span>
+                    </div>
+                    
+                    <div class="tree-item" onclick="switchTab('outline')">
+                        <span class="icon">📋</span>
+                        <span>总纲.md</span>
+                    </div>
+                    
+                    <div class="tree-item" onclick="switchTab('timeline')">
+                        <span class="icon">📅</span>
+                        <span>时间线.md</span>
+                    </div>
+                    
+                    <div class="tree-item folder">
+                        <span class="toggle">▼</span>
+                        <span class="icon">👥</span>
+                        <span>角色</span>
+                    </div>
+                    <div class="tree-item indent-1" onclick="switchTab('character1')">
+                        <span class="icon">👤</span>
+                        <span>主角-林凡.md</span>
+                    </div>
+                    <div class="tree-item indent-1" onclick="switchTab('character2')">
+                        <span class="icon">👤</span>
+                        <span>女主-苏婉儿.md</span>
+                    </div>
+                    
+                    <div class="tree-item folder">
+                        <span class="toggle">▼</span>
+                        <span class="icon">🌍</span>
+                        <span>世界背景</span>
+                    </div>
+                    <div class="tree-item indent-1" onclick="switchTab('world')">
+                        <span class="icon">📄</span>
+                        <span>修仙体系.md</span>
+                    </div>
+                    
+                    <div class="tree-item" onclick="switchTab('hints')">
+                        <span class="icon">🔮</span>
+                        <span>伏笔.md</span>
+                    </div>
+                    
+                    <div class="tree-item" onclick="switchTab('inspiration')">
+                        <span class="icon">💡</span>
+                        <span>灵感.md</span>
+                    </div>
+                    
+                    <div class="tree-item folder">
+                        <span class="toggle">▼</span>
+                        <span class="icon">📚</span>
+                        <span>正文</span>
+                    </div>
+                    <div class="tree-item indent-1 folder">
+                        <span class="toggle">▼</span>
+                        <span class="icon">📁</span>
+                        <span>第一卷：灵根觉醒</span>
+                    </div>
+                    
+                    <!-- 第一章：章节目录结构 -->
+                    <div class="tree-item indent-2 folder active">
+                        <span class="toggle">▼</span>
+                        <span class="icon">📂</span>
+                        <span>第一章：觉醒之日</span>
+                    </div>
+                    <div class="tree-item indent-3" onclick="switchTab('chapter1-outline')">
+                        <span class="icon">📋</span>
+                        <span>章节大纲.md</span>
+                    </div>
+                    <div class="tree-item indent-3" onclick="switchTab('chapter1-bg')">
+                        <span class="icon">🎭</span>
+                        <span>章节背景.md</span>
+                    </div>
+                    <div class="tree-item indent-3 folder">
+                        <span class="toggle">▼</span>
+                        <span class="icon">🎬</span>
+                        <span>主要场景</span>
+                    </div>
+                    <div class="tree-item indent-4" onclick="switchTab('scene1')">
+                        <span class="icon">📝</span>
+                        <span>场景1_山中小村.md</span>
+                    </div>
+                    <div class="tree-item indent-4" onclick="switchTab('scene2')">
+                        <span class="icon">📝</span>
+                        <span>场景2_村口广场.md</span>
+                    </div>
+                    <div class="tree-item indent-3 active" onclick="switchTab('chapter1')">
+                        <span class="icon">📄</span>
+                        <span>正文.md</span>
+                    </div>
+                    
+                    <!-- 第二章：章节目录结构 -->
+                    <div class="tree-item indent-2 folder">
+                        <span class="toggle">▶</span>
+                        <span class="icon">📂</span>
+                        <span>第二章：灵根测试</span>
+                    </div>
+                    
+                    <!-- 第三章：章节目录结构 -->
+                    <div class="tree-item indent-2 folder">
+                        <span class="toggle">▶</span>
+                        <span class="icon">📂</span>
+                        <span>第三章：入门考核</span>
+                    </div>
+                    
+                    <div class="tree-item indent-1 folder">
+                        <span class="toggle">▶</span>
+                        <span class="icon">📁</span>
+                        <span>第二卷：青云试炼</span>
+                    </div>
+                </div>
+                
+                <!-- 归档区 -->
+                <div class="tree-section">
+                    <div class="section-header">
+                        <span>▼</span>
+                        <span>归档区</span>
+                    </div>
+                    <div class="tree-item indent-1 folder">
+                        <span class="toggle">▶</span>
+                        <span class="icon">📁</span>
+                        <span>第一卷：灵根觉醒</span>
+                    </div>
+                    <div class="tree-item indent-2 archived" onclick="switchTab('archived-ch1')">
+                        <span class="icon">🔒</span>
+                        <span>第一章：觉醒之日.md</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 中间编辑区 -->
+        <main class="editor-area">
+            <div class="tabs-bar">
+                <div class="tab active" onclick="switchTab('chapter1')">
+                    <span>📄</span>
+                    <span>正文.md - 第一章：觉醒之日</span>
+                    <span class="unsaved"></span>
+                    <span class="close">×</span>
+                </div>
+                <div class="tab" onclick="switchTab('outline')">
+                    <span>📋</span>
+                    <span>总纲.md</span>
+                    <span class="close">×</span>
+                </div>
+            </div>
+            
+            <div class="editor-toolbar">
+                <div class="toolbar-btn" title="切换侧边栏">☰</div>
+                <div class="toolbar-separator"></div>
+                <div class="toolbar-btn" title="Markdown 预览">👁</div>
+                <div class="toolbar-btn" title="分屏">◫</div>
+                <div class="toolbar-separator"></div>
+                <div class="toolbar-btn" title="撤销">↶</div>
+                <div class="toolbar-btn" title="重做">↷</div>
+                <div class="toolbar-separator"></div>
+                <div class="toolbar-btn" title="查找">🔍</div>
+                <div class="toolbar-btn" title="替换">🔄</div>
+                <div class="toolbar-separator"></div>
+                <div class="toolbar-btn" title="字数统计">📊 1,247字</div>
+                <div class="toolbar-separator"></div>
+                <div class="toolbar-btn" title="保存 (Ctrl+S)">💾</div>
+                <div style="margin-left: auto;" class="toolbar-btn" title="选中引用到对话 (Ctrl+I)">
+                    🤖 Ctrl+I
+                </div>
+            </div>
+            
+            <div class="code-editor-container" id="editor-container">
+                <div class="line-numbers" id="line-numbers">
+                    <div class="line-num">1</div>
+                    <div class="line-num">2</div>
+                    <div class="line-num">3</div>
+                    <div class="line-num">4</div>
+                    <div class="line-num">5</div>
+                    <div class="line-num">6</div>
+                    <div class="line-num">7</div>
+                    <div class="line-num">8</div>
+                    <div class="line-num">9</div>
+                    <div class="line-num">10</div>
+                    <div class="line-num">11</div>
+                    <div class="line-num">12</div>
+                    <div class="line-num">13</div>
+                    <div class="line-num">14</div>
+                    <div class="line-num">15</div>
+                    <div class="line-num">16</div>
+                    <div class="line-num">17</div>
+                    <div class="line-num">18</div>
+                    <div class="line-num">19</div>
+                    <div class="line-num">20</div>
+                </div>
+                <div class="code-editor" id="code-editor" contenteditable="true" spellcheck="false">
+                    <div class="code-line"><span class="md-heading"># 第一章：觉醒之日</span></div>
+                    <div class="code-line"></div>
+                    <div class="code-line"><span class="md-scene">【场景一：山中小村】</span></div>
+                    <div class="code-line"></div>
+                    <div class="code-line">清晨的阳光透过薄雾，洒落在大青山脚下的小村庄。炊烟袅袅升起，鸡鸣犬吠声此起彼伏。</div>
+                    <div class="code-line"></div>
+                    <div class="code-line">林凡揉了揉惺忪的睡眼，从破旧的木床上爬起。今天是青云宗弟子来村里测试灵根的日子，也是他改变命运的机会。</div>
+                    <div class="code-line"></div>
+                    <div class="code-line">"凡儿，快起来吃饭了！"母亲的声音从外屋传来。</div>
+                    <div class="code-line"></div>
+                    <div class="code-line">林凡应了一声，迅速穿好衣服。他今年十六岁，身材消瘦，但眼神中透着与年龄不符的坚毅。</div>
+                    <div class="code-line"></div>
+                    <div class="code-line"><span class="md-scene">【场景二：村口广场】</span></div>
+                    <div class="code-line"></div>
+                    <div class="code-line">村口的广场上已经聚集了不少村民。青云宗的仙师们乘坐飞舟降临，引得众人阵阵惊叹。</div>
+                    <div class="code-line"></div>
+                    <div class="code-line">为首的是一位白衣青年，面容俊朗，气质出尘。他扫视了一圈人群，淡淡开口：</div>
+                    <div class="code-line"></div>
+                    <div class="code-line"><span class="md-dialogue">"今日我青云宗在此招收弟子，凡年龄在十六岁以下者，皆可前来测试灵根。"</span></div>
+                    <div class="code-line"></div>
+                    <div class="code-line">林凡深吸一口气，握紧了拳头。他知道，这是他唯一的机会。如果测试通过，他就能踏上修仙之路，改变自己和家人的命运。</div>
+                </div>
+            </div>
+            
+            <!-- 选中浮动工具栏 -->
+            <div class="floating-toolbar" id="floating-toolbar">
+                <div class="toolbar-btn" onclick="addToChat()" title="添加到 AI 对话 (Ctrl+I)">🤖 引用</div>
+                <div class="toolbar-btn" title="改写">🔄</div>
+                <div class="toolbar-btn" title="扩写">➕</div>
+                <div class="toolbar-btn" title="润色">✨</div>
+            </div>
+            
+            <!-- 快捷键提示 -->
+            <div class="shortcut-hint" id="shortcut-hint">
+                已添加到对话引用 <span class="key">Ctrl+I</span>
+            </div>
+        </main>
+
+        <!-- 右侧对话区 -->
+        <aside class="chat-panel">
+            <div class="chat-header">
+                <div class="agent-info">
+                    <div class="agent-avatar">🤖</div>
+                    <div>
+                        <div class="agent-name">创作助手</div>
+                        <div class="agent-status">● 在线</div>
+                    </div>
+                </div>
+                <div class="chat-actions">
+                    <div class="context-badge">3个上下文</div>
+                    <div class="icon-btn">⚙</div>
+                </div>
+            </div>
+            
+            <div class="chat-messages" id="chat-messages">
+                <div class="message agent">
+                    <div class="message-bubble">
+                        你好！我是你的 AI 创作助手。我已加载当前章节的上下文信息，包括：
+                        <br><br>
+                        • 第一章大纲<br>
+                        • 主角林凡的角色设定<br>
+                        • 修仙体系基础设定<br><br>
+                        有什么我可以帮你的吗？
+                    </div>
+                    <div class="message-actions">
+                        <span class="message-action">复制</span>
+                        <span class="message-action">引用</span>
+                    </div>
+                </div>
+                
+                <!-- 带引用的用户消息示例 -->
+                <div class="message user">
+                    <div class="message-bubble">
+                        <div class="reference-block">
+                            <div class="reference-header">
+                                <span>📄</span>
+                                <span>来自「正文.md」第20行</span>
+                            </div>
+                            <div class="reference-content">
+                                林凡深吸一口气，握紧了拳头。他知道，这是他唯一的机会...
+                            </div>
+                        </div>
+                        帮我把这句话写得更有张力一些，增加一些心理描写
+                    </div>
+                </div>
+                
+                <div class="message agent">
+                    <div class="message-bubble">
+                        我来帮你改写这句话，增强张力和心理描写：<br><br>
+                        <div class="reference-block">
+                            <div class="reference-header">
+                                <span>✨</span>
+                                <span>改写建议</span>
+                            </div>
+                            <div class="reference-content">
+                                林凡深吸一口气，冰冷的空气灌入肺中，却压不住那颗剧烈跳动的心。他的五指缓缓收紧，指节因用力而泛白。这是他唯一的机会——错过今日，便要在田间劳作一生，再无翻身之日。
+                            </div>
+                        </div>
+                        这样改写增加了：<br>
+                        1. 生理反应（心跳、指节泛白）<br>
+                        2. 心理活动（错过机会的恐惧）<br>
+                        3. 环境描写（冰冷的空气）增强临场感
+                    </div>
+                    <div class="message-actions">
+                        <span class="message-action">复制</span>
+                        <span class="message-action">应用</span>
+                        <span class="message-action">重试</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chat-input-area">
+                <div class="context-chips">
+                    <div class="context-chip">
+                        📄 第一章大纲
+                        <span class="remove">×</span>
+                    </div>
+                    <div class="context-chip">
+                        👤 林凡设定
+                        <span class="remove">×</span>
+                    </div>
+                    <div class="context-chip">
+                        🌍 修仙体系
+                        <span class="remove">×</span>
+                    </div>
+                </div>
+                
+                <div class="input-box">
+                    <textarea placeholder="输入指令或问题...&#10;按 Enter 发送，Shift+Enter 换行"></textarea>
+                    <div class="input-actions">
+                        <span class="input-hint">Enter 发送 · Shift+Enter 换行 · @ 引用</span>
+                        <button class="send-btn">发送</button>
+                    </div>
+                </div>
+                
+                <div class="quick-actions">
+                    <div class="quick-action">📝 生成大纲</div>
+                    <div class="quick-action">✏️ 续写</div>
+                    <div class="quick-action">🔄 改写</div>
+                    <div class="quick-action">➕ 扩写</div>
+                    <div class="quick-action">💡 头脑风暴</div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- 底部状态栏 -->
+    <footer class="status-bar">
+        <div class="status-left">
+            <div class="status-item">
+                <span>📚</span>
+                <span>《仙道独尊》</span>
+            </div>
+            <div class="status-item">
+                <span>📄</span>
+                <span>第一章：觉醒之日</span>
+            </div>
+            <div class="status-item">
+                <span>📝</span>
+                <span>字数：1,247 / 3,000</span>
+            </div>
+            <div class="status-item">
+                <span>💾</span>
+                <span>2分钟前保存</span>
+            </div>
+        </div>
+        <div class="status-right">
+            <div class="status-item">
+                <span>🤖</span>
+                <span>Claude 3.5 Sonnet</span>
+            </div>
+            <div class="status-item" onclick="showVersionModal()">
+                <span>📦</span>
+                <span>main* (3 个未提交)</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- 搜索面板 -->
+    <div class="search-panel" id="search-panel">
+        <div class="search-input-container">
+            <span>🔍</span>
+            <input type="text" placeholder="搜索文件、符号或命令...">
+            <span style="color: var(--text-secondary);">ESC 关闭</span>
+        </div>
+        <div class="search-results">
+            <div class="search-result-item">
+                <div class="search-result-file">📄 总纲.md</div>
+                <div class="search-result-preview">...修仙世界，<span class="search-highlight">主角林凡</span>出身贫寒...</div>
+            </div>
+            <div class="search-result-item">
+                <div class="search-result-file">👤 主角-林凡.md</div>
+                <div class="search-result-preview"><span class="search-highlight">姓名：林凡</span><br>年龄：16岁...</div>
+            </div>
+            <div class="search-result-item">
+                <div class="search-result-file">📄 第一章：觉醒之日</div>
+                <div class="search-result-preview">...今天是<span class="search-highlight">青云宗</span>弟子来村里测试灵根的日子...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 版本控制模态框 -->
+    <div class="modal-overlay" id="version-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">📦 版本控制</div>
+                <div class="modal-close" onclick="closeVersionModal()">×</div>
+            </div>
+            <div class="modal-content">
+                <div class="version-control">
+                    <div class="version-list">
+                        <div class="version-item active">
+                            <div class="version-hash">a1b2c3d</div>
+                            <div class="version-message">完成第一章场景二写作</div>
+                            <div class="version-meta">2分钟前 • +1,247 字</div>
+                        </div>
+                        <div class="version-item">
+                            <div class="version-hash">e4f5g6h</div>
+                            <div class="version-message">创建第一章大纲</div>
+                            <div class="version-meta">30分钟前 • +320 字</div>
+                        </div>
+                        <div class="version-item">
+                            <div class="version-hash">i7j8k9l</div>
+                            <div class="version-message">更新主角林凡设定</div>
+                            <div class="version-meta">1小时前 • 修改角色</div>
+                        </div>
+                        <div class="version-item">
+                            <div class="version-hash">m0n1o2p</div>
+                            <div class="version-message">初始化项目结构</div>
+                            <div class="version-meta">3小时前 • +5 文件</div>
+                        </div>
+                    </div>
+                    <div class="version-diff">
+                        <div style="margin-bottom: 12px; font-weight: 600;">修改内容对比</div>
+                        <div class="diff-line">
+                            <span class="diff-line-num">1</span>
+                            <span class="diff-line-marker"> </span>
+                            <span class="diff-content">第一章：觉醒之日</span>
+                        </div>
+                        <div class="diff-line">
+                            <span class="diff-line-num">2</span>
+                            <span class="diff-line-marker"> </span>
+                            <span class="diff-content"></span>
+                        </div>
+                        <div class="diff-line added">
+                            <span class="diff-line-num">3</span>
+                            <span class="diff-line-marker">+</span>
+                            <span class="diff-content">【场景一：山中小村】</span>
+                        </div>
+                        <div class="diff-line added">
+                            <span class="diff-line-num">4</span>
+                            <span class="diff-line-marker">+</span>
+                            <span class="diff-content"></span>
+                        </div>
+                        <div class="diff-line added">
+                            <span class="diff-line-num">5</span>
+                            <span class="diff-line-marker">+</span>
+                            <span class="diff-content">清晨的阳光透过薄雾，洒落在大青山脚下的小村庄...</span>
+                        </div>
+                        <div class="diff-line">
+                            <span class="diff-line-num">...</span>
+                            <span class="diff-line-marker"> </span>
+                            <span class="diff-content"></span>
+                        </div>
+                        <div class="diff-line added">
+                            <span class="diff-line-num">45</span>
+                            <span class="diff-line-marker">+</span>
+                            <span class="diff-content">整个广场瞬间沸腾了。</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 设置模态框 -->
+    <div class="modal-overlay" id="settings-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">⚙ 系统设置</div>
+                <div class="modal-close" onclick="closeSettingsModal()">×</div>
+            </div>
+            <div class="modal-content">
+                <div class="settings-container">
+                    <div class="settings-sidebar">
+                        <div class="settings-category active">🤖 AI 配置</div>
+                        <div class="settings-category">📝 编辑器</div>
+                        <div class="settings-category">📚 项目设置</div>
+                        <div class="settings-category">⌨️ 快捷键</div>
+                        <div class="settings-category">💾 数据管理</div>
+                    </div>
+                    <div class="settings-content">
+                        <div class="setting-item">
+                            <label class="setting-label">AI 服务提供商</label>
+                            <div class="setting-description">选择使用的 AI 模型提供商</div>
+                            <select class="setting-input">
+                                <option>Anthropic Claude</option>
+                                <option>OpenAI GPT</option>
+                                <option>本地模型</option>
+                            </select>
+                        </div>
+                        
+                        <div class="setting-item">
+                            <label class="setting-label">API Key</label>
+                            <div class="setting-description">你的 API 密钥（仅存储在本地）</div>
+                            <input type="password" class="setting-input" placeholder="sk-...">
+                        </div>
+                        
+                        <div class="setting-item">
+                            <label class="setting-label">默认模型</label>
+                            <div class="setting-description">用于创作的默认 AI 模型</div>
+                            <select class="setting-input">
+                                <option>Claude 3.5 Sonnet</option>
+                                <option>Claude 3.5 Haiku</option>
+                                <option>GPT-4</option>
+                                <option>GPT-3.5 Turbo</option>
+                            </select>
+                        </div>
+                        
+                        <div class="setting-item">
+                            <label class="setting-label">系统提示词</label>
+                            <div class="setting-description">定义 AI 助手的角色和行为</div>
+                            <textarea class="setting-input" rows="4" style="font-family: monospace;">你是一位专业的小说创作助手，擅长玄幻修仙题材...</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 浮动工具栏 -->
+    <div class="floating-toolbar" id="floating-toolbar">
+        <div class="toolbar-btn" onclick="addToChat()" title="添加到 AI 对话 (Ctrl+I)">🤖 引用</div>
+        <div class="toolbar-btn" title="改写">🔄</div>
+        <div class="toolbar-btn" title="扩写">➕</div>
+        <div class="toolbar-btn" title="润色">✨</div>
+    </div>
+
+    <script>
+        // 显示搜索面板
+        function showSearchPanel() {
+            document.getElementById('search-panel').classList.add('active');
+        }
+
+        // 隐藏搜索面板
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                document.getElementById('search-panel').classList.remove('active');
+                closeVersionModal();
+                closeSettingsModal();
+            }
+        });
+
+        // 显示版本控制模态框
+        function showVersionModal() {
+            document.getElementById('version-modal').classList.add('active');
+        }
+
+        // 关闭版本控制模态框
+        function closeVersionModal() {
+            document.getElementById('version-modal').classList.remove('active');
+        }
+
+        // 显示设置模态框
+        function showSettingsModal() {
+            document.getElementById('settings-modal').classList.add('active');
+        }
+
+        // 关闭设置模态框
+        function closeSettingsModal() {
+            document.getElementById('settings-modal').classList.remove('active');
+        }
+
+        // 切换标签页
+        function switchTab(tabId) {
+            // 更新树形菜单激活状态
+            document.querySelectorAll('.tree-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.currentTarget.classList.add('active');
+            
+            // 这里可以添加切换内容的逻辑
+            console.log('切换到:', tabId);
+        }
+
+        // 设置分类切换
+        document.querySelectorAll('.settings-category').forEach(category => {
+            category.addEventListener('click', function() {
+                document.querySelectorAll('.settings-category').forEach(c => c.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        // 版本项点击
+        document.querySelectorAll('.version-item').forEach(item => {
+            item.addEventListener('click', function() {
+                document.querySelectorAll('.version-item').forEach(i => i.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        // 模拟文本选中显示浮动工具栏
+        document.addEventListener('mouseup', function(e) {
+            const selection = window.getSelection();
+            const toolbar = document.getElementById('floating-toolbar');
+            
+            if (selection.toString().length > 0) {
+                const range = selection.getRangeAt(0);
+                const rect = range.getBoundingClientRect();
+                
+                toolbar.style.left = rect.left + (rect.width / 2) - (toolbar.offsetWidth / 2) + 'px';
+                toolbar.style.top = rect.top - toolbar.offsetHeight - 10 + 'px';
+                toolbar.classList.add('active');
+            } else {
+                toolbar.classList.remove('active');
+            }
+        });
+
+        // 全局变量存储选中的文本
+        let selectedText = '';
+        let selectedLineNum = 0;
+
+        // 添加到 AI 对话功能
+        function addToChat() {
+            const selection = window.getSelection();
+            if (selection.toString().length === 0) return;
+            
+            selectedText = selection.toString();
+            
+            // 获取选中的行号（简化版本，实际需要更精确的计算）
+            const editor = document.getElementById('code-editor');
+            const selectionRange = selection.getRangeAt(0);
+            
+            // 在对话区添加引用块
+            const chatMessages = document.getElementById('chat-messages');
+            const userMessage = document.createElement('div');
+            userMessage.className = 'message user';
+            userMessage.innerHTML = `
+                <div class="message-bubble">
+                    <div class="reference-block">
+                        <div class="reference-header">
+                            <span>📄</span>
+                            <span>来自「正文.md」</span>
+                        </div>
+                        <div class="reference-content">
+                            ${selectedText.substring(0, 100)}${selectedText.length > 100 ? '...' : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // 暂时添加引用块，等待用户输入
+            chatMessages.appendChild(userMessage);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            // 聚焦到输入框
+            document.querySelector('.input-box textarea').focus();
+            
+            // 隐藏浮动工具栏
+            document.getElementById('floating-toolbar').classList.remove('active');
+            
+            // 显示快捷键提示
+            showShortcutHint();
+        }
+
+        // 显示快捷键提示
+        function showShortcutHint() {
+            const hint = document.getElementById('shortcut-hint');
+            hint.classList.add('show');
+            setTimeout(() => {
+                hint.classList.remove('show');
+            }, 2000);
+        }
+
+        // 快捷键支持
+        document.addEventListener('keydown', function(e) {
+            // Ctrl+K 打开搜索
+            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                e.preventDefault();
+                showSearchPanel();
+            }
+            
+            // Ctrl+S 保存
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                console.log('保存文件...');
+            }
+            
+            // Ctrl+I - 选中引用到对话
+            if ((e.ctrlKey || e.metaKey) && e.key === 'i') {
+                e.preventDefault();
+                const selection = window.getSelection();
+                if (selection.toString().length > 0) {
+                    addToChat();
+                }
+            }
+        });
+
+        // 同步滚动行号
+        document.getElementById('code-editor').addEventListener('scroll', function() {
+            document.getElementById('line-numbers').scrollTop = this.scrollTop;
+        });
+
+        // 更新行号高亮
+        document.getElementById('code-editor').addEventListener('click', function() {
+            // 简化版本，实际需要根据光标位置计算行号
+            const lineNums = document.querySelectorAll('.line-num');
+            lineNums.forEach(num => num.classList.remove('active'));
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+/* App 样式 */
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+/* 隐藏默认的 Vite 欢迎页面样式 */
+.logo {
+  display: none;
+}
+
+.card {
+  padding: 0;
+}
+
+.read-the-docs {
+  display: none;
+}
