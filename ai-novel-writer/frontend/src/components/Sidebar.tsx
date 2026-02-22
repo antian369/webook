@@ -103,8 +103,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     visible: boolean;
     title: string;
     placeholder: string;
+    defaultValue: string;
     action: 'newFile' | 'newFolder' | 'rename' | null;
-  }>({ visible: false, title: '', placeholder: '', action: null });
+  }>({ visible: false, title: '', placeholder: '', defaultValue: '', action: null });
   
   const [confirmDialog, setConfirmDialog] = useState<{
     visible: boolean;
@@ -164,10 +165,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       visible: true,
       title: '新建文件',
       placeholder: '输入文件名（如：章节大纲.md）',
+      defaultValue: '',
       action: 'newFile'
     });
   };
-  
+
   // 新建文件夹
   const handleNewFolder = () => {
     if (!contextMenu.node) return;
@@ -175,6 +177,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       visible: true,
       title: '新建文件夹',
       placeholder: '输入文件夹名',
+      defaultValue: '',
       action: 'newFolder'
     });
   };
@@ -359,6 +362,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         visible={inputDialog.visible}
         title={inputDialog.title}
         placeholder={inputDialog.placeholder}
+        defaultValue={inputDialog.defaultValue}
         onConfirm={handleInputConfirm}
         onCancel={() => setInputDialog(prev => ({ ...prev, visible: false }))}
       />
