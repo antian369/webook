@@ -68,8 +68,5 @@ htmlcov/
 .nox/
 
 # Project specific - User data should not be committed
-ai-novel-writer/novels/*/
-!ai-novel-writer/novels/.gitkeep
-
-# Keep example project
-!ai-novel-writer/novels/示例小说/
+# Ignore all novels data (including example project)
+ai-novel-writer/novels/

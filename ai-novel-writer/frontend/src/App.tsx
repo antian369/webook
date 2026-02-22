@@ -53,13 +53,9 @@ function App() {
   const handleFileSelect = (file: { name: string; path: string }) => {
     const tabId = file.path;
     if (!openTabs.find(tab => tab.id === tabId)) {
-      setOpenTabs([...openTabs, { id: tabId, name: file.name, path: file.path, content: '', isModified: false }]);
+      setOpenTabs([...openTabs, { id: tabId, name: file.name, path: file.path }]);
     }
     setActiveTab(tabId);
-  };
-
-  const handleTabsChange = (updatedTabs: Array<{ id: string; name: string; path: string; content?: string; isModified?: boolean }>) => {
-    setOpenTabs(updatedTabs);
   };
 
   const handleTabClose = (tabId: string) => {
@@ -100,7 +96,6 @@ function App() {
           activeTab={activeTab}
           onTabSelect={setActiveTab}
           onTabClose={handleTabClose}
-          onTabsChange={handleTabsChange}
         />
         
         <ChatPanel 

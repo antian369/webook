@@ -210,14 +210,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
         : contextMenu.node.path.substring(0, contextMenu.node.path.lastIndexOf('/'));
       
       if (inputDialog.action === 'newFile') {
-        const newPath = `${parentPath}/${value}`;
+        // 如果没有扩展名，默认添加 .txt
+        let fileName = value.trim();
+        if (!fileName.includes('.')) {
+          fileName += '.txt';
+        }
+        const newPath = `${parentPath}/${fileName}`;
         await api.createFileOrFolder(newPath, 'file');
       } else if (inputDialog.action === 'newFolder') {
-        const newPath = `${parentPath}/${value}`;
+        const newPath = `${parentPath}/${value.trim()}`;
         await api.createFileOrFolder(newPath, 'directory');
       } else if (inputDialog.action === 'rename') {
         const oldPath = contextMenu.node.path;
-        const newPath = `${parentPath}/${value}`;
+        const newPath = `${parentPath}/${value.trim()}`;
         await api.renameFileOrFolder(oldPath, newPath);
       }
       
