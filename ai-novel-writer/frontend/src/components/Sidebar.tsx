@@ -200,6 +200,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
     });
   };
   
+  // 处理文件名：校验扩展名，如果没有则添加默认扩展名
+  const processFileName = (fileName: string): string => {
+    const trimmed = fileName.trim();
+    if (!trimmed) return '';
+    
+    // 如果没有扩展名，添加默认 .txt
+    if (!trimmed.includes('.')) {
+      return `${trimmed}.txt`;
+    }
+    
+    // 检查扩展名是否合法（只允许 .txt 和 .md）
+    const ext = trimmed.split('.').pop()?.toLowerCase();
+    if (ext !== 'txt' && ext !== 'md') {
+      throw new Error('只支持 .txt 和 .md 文件格式');
+    }
+    
+    return trimmed;
+  };
+  
   // 处理输入对话框确认
   const handleInputConfirm = async (value: string) => {
     if (!contextMenu.node || !inputDialog.action) return;
@@ -210,10 +229,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         : contextMenu.node.path.substring(0, contextMenu.node.path.lastIndexOf('/'));
       
       if (inputDialog.action === 'newFile') {
-        // 如果没有扩展名，默认添加 .txt
-        let fileName = value.trim();
-        if (!fileName.includes('.')) {
-          fileName += '.txt';
+        // 处理文件名（添加默认扩展名、校验）
+        const fileName = processFileName(value);
+        if (!fileName) {
+          alert('文件名不能为空');
+          return;
         }
         const newPath = `${parentPath}/${fileName}`;
         await api.createFileOrFolder(newPath, 'file');
@@ -222,7 +242,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
         await api.createFileOrFolder(newPath, 'directory');
       } else if (inputDialog.action === 'rename') {
         const oldPath = contextMenu.node.path;
-        const newPath = `${parentPath}/${value.trim()}`;
+        // 如果是文件，也处理扩展名
+        let newName = value.trim();
+        if (!contextMenu.node.is_directory) {
+          newName = processFileName(newName);
+          if (!newName) {
+            alert('文件名不能为空');
+            return;
+          }
+        }
+        const newPath = `${parentPath}/${newName}`;
         await api.renameFileOrFolder(oldPath, newPath);
       }
       
