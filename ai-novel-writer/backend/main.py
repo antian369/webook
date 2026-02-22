@@ -1,14 +1,9 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
 from pathlib import Path
 from typing import List, Dict, Any
 import os
-
-# 请求体模型
-class SaveFileRequest(BaseModel):
-    content: str
 
 app = FastAPI(
     title="AI Novel Writer API",
@@ -170,8 +165,13 @@ async def get_file_content(path: str):
 
 
 @app.post("/api/files/content")
-async def save_file_content(path: str, request: SaveFileRequest):
+async def save_file_content(
+    path: str,
+    content: str = Body(..., description="文件内容")
+):
     """保存文件内容"""
+    print(f"Saving file: {path}, content length: {len(content) if content else 0}")
+    
     file_path = Path(path)
 
     # 安全检查
@@ -185,7 +185,9 @@ async def save_file_content(path: str, request: SaveFileRequest):
         file_path.parent.mkdir(parents=True, exist_ok=True)
 
         # 写入文件
-        file_path.write_text(request.content, encoding='utf-8')
+        file_path.write_text(content or "", encoding='utf-8')
+        
+        print(f"File saved successfully: {file_path}")
 
         return {
             "message": "File saved successfully",
@@ -193,6 +195,7 @@ async def save_file_content(path: str, request: SaveFileRequest):
             "size": file_path.stat().st_size
         }
     except Exception as e:
+        print(f"Error saving file: {e}")
         raise HTTPException(status_code=500, detail=f"Error saving file: {str(e)}")
 
 

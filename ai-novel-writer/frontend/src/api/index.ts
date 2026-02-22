@@ -37,13 +37,23 @@ export const api = {
 
   // 保存文件内容
   saveFileContent: async (path: string, content: string) => {
-    const response = await fetch(`${API_BASE_URL}/api/files/content?path=${encodeURIComponent(path)}`, {
+    const url = `${API_BASE_URL}/api/files/content?path=${encodeURIComponent(path)}`;
+    console.log('Saving to:', url, 'Content length:', content?.length);
+    
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ content }),
     });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Save error:', errorData);
+      throw new Error(errorData.detail || `HTTP ${response.status}`);
+    }
+    
     return response.json();
   },
 
