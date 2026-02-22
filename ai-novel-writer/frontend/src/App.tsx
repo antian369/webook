@@ -53,9 +53,13 @@ function App() {
   const handleFileSelect = (file: { name: string; path: string }) => {
     const tabId = file.path;
     if (!openTabs.find(tab => tab.id === tabId)) {
-      setOpenTabs([...openTabs, { id: tabId, name: file.name, path: file.path }]);
+      setOpenTabs([...openTabs, { id: tabId, name: file.name, path: file.path, content: '', isModified: false }]);
     }
     setActiveTab(tabId);
+  };
+
+  const handleTabsChange = (updatedTabs: Array<{ id: string; name: string; path: string; content?: string; isModified?: boolean }>) => {
+    setOpenTabs(updatedTabs);
   };
 
   const handleTabClose = (tabId: string) => {
@@ -79,7 +83,7 @@ function App() {
       <TopNav />
       
       <div className="flex-1 flex overflow-hidden">
-        <Sidebar 
+        <Sidebar
           width={sidebarWidth}
           onResize={handleSidebarResize}
           files={files}
@@ -88,13 +92,15 @@ function App() {
           projects={projects}
           onProjectChange={setCurrentProject}
           onProjectCreated={loadProjects}
+          onFilesChanged={() => loadProjectFiles(currentProject)}
         />
         
-        <EditorArea 
+        <EditorArea
           tabs={openTabs}
           activeTab={activeTab}
           onTabSelect={setActiveTab}
           onTabClose={handleTabClose}
+          onTabsChange={handleTabsChange}
         />
         
         <ChatPanel 

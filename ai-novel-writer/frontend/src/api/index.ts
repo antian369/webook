@@ -46,4 +46,40 @@ export const api = {
     });
     return response.json();
   },
+
+  // 创建文件或文件夹
+  createFileOrFolder: async (path: string, type: 'file' | 'directory' = 'file') => {
+    const response = await fetch(`${API_BASE_URL}/api/files/create?path=${encodeURIComponent(path)}&type=${type}`, {
+      method: 'POST',
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Failed to create');
+    }
+    return response.json();
+  },
+
+  // 重命名文件或文件夹
+  renameFileOrFolder: async (oldPath: string, newPath: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/files/rename?old_path=${encodeURIComponent(oldPath)}&new_path=${encodeURIComponent(newPath)}`, {
+      method: 'POST',
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Failed to rename');
+    }
+    return response.json();
+  },
+
+  // 删除文件或文件夹
+  deleteFileOrFolder: async (path: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/files/delete?path=${encodeURIComponent(path)}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Failed to delete');
+    }
+    return response.json();
+  },
 };

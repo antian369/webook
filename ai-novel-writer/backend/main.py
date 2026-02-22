@@ -191,6 +191,120 @@ async def save_file_content(path: str, content: str):
         raise HTTPException(status_code=500, detail=f"Error saving file: {str(e)}")
 
 
+@app.post("/api/files/create")
+async def create_file_or_folder(path: str, type: str = "file"):
+    """创建文件或文件夹
+    
+    Args:
+        path: 文件或文件夹的完整路径
+        type: "file" 或 "directory"
+    """
+    target_path = Path(path)
+    
+    # 安全检查
+    try:
+        target_path.relative_to(NOVELS_DIR)
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # 检查是否已存在
+    if target_path.exists():
+        raise HTTPException(status_code=400, detail=f"Path already exists: {target_path.name}")
+    
+    try:
+        if type == "directory":
+            # 创建文件夹
+            target_path.mkdir(parents=True, exist_ok=True)
+            return {
+                "message": "Folder created successfully",
+                "path": str(target_path),
+                "type": "directory"
+            }
+        else:
+            # 创建文件
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            target_path.write_text("", encoding='utf-8')
+            return {
+                "message": "File created successfully",
+                "path": str(target_path),
+                "type": "file"
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating {type}: {str(e)}")
+
+
+@app.post("/api/files/rename")
+async def rename_file_or_folder(old_path: str, new_path: str):
+    """重命名或移动文件/文件夹"""
+    old_target = Path(old_path)
+    new_target = Path(new_path)
+    
+    # 安全检查
+    try:
+        old_target.relative_to(NOVELS_DIR)
+        new_target.relative_to(NOVELS_DIR)
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # 检查源文件是否存在
+    if not old_target.exists():
+        raise HTTPException(status_code=404, detail=f"Source not found: {old_target.name}")
+    
+    # 检查目标是否已存在
+    if new_target.exists():
+        raise HTTPException(status_code=400, detail=f"Target already exists: {new_target.name}")
+    
+    try:
+        # 确保目标父目录存在
+        new_target.parent.mkdir(parents=True, exist_ok=True)
+        
+        # 重命名/移动
+        old_target.rename(new_target)
+        
+        return {
+            "message": "Renamed successfully",
+            "old_path": str(old_target),
+            "new_path": str(new_target)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error renaming: {str(e)}")
+
+
+@app.delete("/api/files/delete")
+async def delete_file_or_folder(path: str):
+    """删除文件或文件夹"""
+    target_path = Path(path)
+    
+    # 安全检查
+    try:
+        target_path.relative_to(NOVELS_DIR)
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # 检查是否存在
+    if not target_path.exists():
+        raise HTTPException(status_code=404, detail=f"Path not found: {target_path.name}")
+    
+    try:
+        import shutil
+        
+        if target_path.is_dir():
+            # 递归删除文件夹
+            shutil.rmtree(target_path)
+            message = "Folder deleted successfully"
+        else:
+            # 删除文件
+            target_path.unlink()
+            message = "File deleted successfully"
+        
+        return {
+            "message": message,
+            "path": str(target_path)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting: {str(e)}")
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

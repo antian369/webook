@@ -1,10 +1,13 @@
-import React from 'react';
-import { X, Save, Eye, BarChart3, RotateCcw, RotateCw } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { X, Save, Eye } from 'lucide-react';
+import { api } from '../api';
 
 interface Tab {
   id: string;
   name: string;
   path: string;
+  content?: string;
+  isModified?: boolean;
 }
 
 interface EditorAreaProps {
@@ -12,19 +15,140 @@ interface EditorAreaProps {
   activeTab: string;
   onTabSelect: (tabId: string) => void;
   onTabClose: (tabId: string) => void;
+  onTabsChange?: (tabs: Tab[]) => void;
 }
 
 export const EditorArea: React.FC<EditorAreaProps> = ({
   tabs,
   activeTab,
   onTabSelect,
-  onTabClose
+  onTabClose,
+  onTabsChange
 }) => {
+  const [localTabs, setLocalTabs] = useState<Tab[]>(tabs);
+  const [isLoading, setIsLoading] = useState(false);
+  const [wordCount, setWordCount] = useState(0);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 同步外部 tabs 到本地
+  useEffect(() => {
+    setLocalTabs(tabs.map(tab => ({
+      ...tab,
+      content: tab.content || '',
+      isModified: tab.isModified || false
+    })));
+  }, [tabs]);
+
+  // 加载文件内容
+  useEffect(() => {
+    const loadFileContent = async () => {
+      if (!activeTab) return;
+      
+      const activeTabData = localTabs.find(tab => tab.id === activeTab);
+      if (!activeTabData || activeTabData.content !== '') return;
+      
+      setIsLoading(true);
+      try {
+        const data = await api.getFileContent(activeTabData.path);
+        updateTabContent(activeTab, data.content, false);
+      } catch (error) {
+        console.error('Failed to load file:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadFileContent();
+  }, [activeTab]);
+
+  // 更新标签页内容
+  const updateTabContent = (tabId: string, content: string, isModified: boolean) => {
+    setLocalTabs(prev => {
+      const newTabs = prev.map(tab =>
+        tab.id === tabId ? { ...tab, content, isModified } : tab
+      );
+      onTabsChange?.(newTabs);
+      return newTabs;
+    });
+    
+    // 更新字数统计
+    setWordCount(content.length);
+  };
+
+  // 保存文件
+  const saveFile = useCallback(async () => {
+    const activeTabData = localTabs.find(tab => tab.id === activeTab);
+    if (!activeTabData || !activeTabData.isModified) return;
+
+    try {
+      await api.saveFileContent(activeTabData.path, activeTabData.content || '');
+      updateTabContent(activeTab, activeTabData.content || '', false);
+    } catch (error) {
+      console.error('Failed to save file:', error);
+      alert('保存失败');
+    }
+  }, [localTabs, activeTab]);
+
+  // 自动保存（防抖，3秒）
+  useEffect(() => {
+    const activeTabData = localTabs.find(tab => tab.id === activeTab);
+    if (!activeTabData?.isModified) return;
+
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+
+    autoSaveTimerRef.current = setTimeout(() => {
+      saveFile();
+    }, 3000);
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, [localTabs, activeTab, saveFile]);
+
+  // 键盘快捷键
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        saveFile();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [saveFile]);
+
+  // 处理文本变化
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newContent = e.target.value;
+    updateTabContent(activeTab, newContent, true);
+  };
+
+  // 处理关闭标签页
+  const handleCloseTab = (tabId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    const tab = localTabs.find(t => t.id === tabId);
+    if (tab?.isModified) {
+      const confirm = window.confirm(`"${tab.name}" 有未保存的更改，确定要关闭吗？`);
+      if (!confirm) return;
+    }
+    
+    onTabClose(tabId);
+  };
+
+  const activeTabData = localTabs.find(tab => tab.id === activeTab);
+
   return (
     <div className="flex-1 flex flex-col bg-[#1e1e1e] min-w-0">
       {/* 标签栏 */}
       <div className="h-9 bg-[#252526] flex items-end px-2 gap-0.5 overflow-x-auto">
-        {tabs.map(tab => (
+        {localTabs.map(tab => (
           <div
             key={tab.id}
             onClick={() => onTabSelect(tab.id)}
@@ -39,11 +163,9 @@ export const EditorArea: React.FC<EditorAreaProps> = ({
           >
             <span>📄</span>
             <span className="truncate max-w-[150px]">{tab.name}</span>
+            {tab.isModified && <span className="w-2 h-2 rounded-full bg-blue-500" />}
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onTabClose(tab.id);
-              }}
+              onClick={(e) => handleCloseTab(tab.id, e)}
               className="ml-1 hover:bg-[#3e3e42] rounded p-0.5"
             >
               <X size={12} />
@@ -54,74 +176,52 @@ export const EditorArea: React.FC<EditorAreaProps> = ({
       
       {/* 工具栏 */}
       <div className="h-10 bg-[#252526] border-b border-[#3e3e42] flex items-center px-3 gap-2">
-        <button className="p-1.5 hover:bg-[#37373d] rounded text-sm" title="撤销">
-          <RotateCcw size={16} />
-        </button>
-        <button className="p-1.5 hover:bg-[#37373d] rounded text-sm" title="重做">
-          <RotateCw size={16} />
+        <button 
+          className={`p-1.5 rounded text-sm flex items-center gap-1 ${
+            activeTabData?.isModified 
+              ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+              : 'hover:bg-[#37373d] text-[#858585]'
+          }`}
+          title="保存 (Ctrl+S)"
+          onClick={saveFile}
+          disabled={!activeTabData?.isModified}
+        >
+          <Save size={16} />
+          {activeTabData?.isModified && <span className="text-xs">未保存</span>}
         </button>
         <div className="w-px h-5 bg-[#3e3e42]" />
         <button className="p-1.5 hover:bg-[#37373d] rounded text-sm" title="Markdown 预览">
           <Eye size={16} />
         </button>
-        <button className="p-1.5 hover:bg-[#37373d] rounded text-sm" title="字数统计">
-          <BarChart3 size={16} />
-        </button>
         <div className="flex-1" />
-        <span className="text-sm text-[#858585]">📊 1,247字</span>
-        <button className="p-1.5 hover:bg-[#37373d] rounded text-sm ml-2" title="保存 (Ctrl+S)">
-          <Save size={16} />
-        </button>
-        <button className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm flex items-center gap-1">
-          <span>🤖</span>
-          <span>Ctrl+I</span>
-        </button>
+        <span className="text-sm text-[#858585]">📝 {wordCount} 字符</span>
       </div>
       
       {/* 编辑器区域 */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* 行号 */}
-        <div className="w-12 bg-[#1e1e1e] border-r border-[#3e3e42] py-4 text-right text-sm text-[#858585] select-none">
-          {Array.from({ length: 20 }, (_, i) => (
-            <div key={i} className="px-2 leading-7">{i + 1}</div>
-          ))}
-        </div>
+      <div className="flex-1 flex overflow-hidden relative">
+        {isLoading && (
+          <div className="absolute inset-0 bg-[#1e1e1e]/80 flex items-center justify-center z-10">
+            <div className="text-[#858585]">加载中...</div>
+          </div>
+        )}
         
-        {/* 编辑器内容 */}
-        <div className="flex-1 p-4 overflow-auto font-mono text-sm leading-7">
-          {tabs.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-[#858585]">
-              <div className="text-center">
-                <div className="text-4xl mb-4">📄</div>
-                <div>从左侧选择文件开始编辑</div>
-              </div>
+        {localTabs.length === 0 ? (
+          <div className="flex-1 flex items-center justify-center text-[#858585]">
+            <div className="text-center">
+              <div className="text-4xl mb-4">📄</div>
+              <div>从左侧选择文件开始编辑</div>
             </div>
-          ) : (
-            <div className="whitespace-pre-wrap">
-              <span className="text-emerald-400 font-bold"># 第一章：觉醒之日</span>
-{'\n'}
-              <span className="text-orange-400 font-bold">【场景一：山中小村】</span>
-{'\n'}
-              <span className="text-gray-300">清晨的阳光透过薄雾，洒落在大青山脚下的小村庄。炊烟袅袅升起，鸡鸣犬吠声此起彼伏。</span>
-{'\n'}
-              <span className="text-gray-300">林凡揉了揉惺忪的睡眼，从破旧的木床上爬起。今天是青云宗弟子来村里测试灵根的日子，也是他改变命运的机会。</span>
-{'\n'}
-              <span className="text-sky-300">"凡儿，快起来吃饭了！"</span>
-{'\n'}
-              <span className="text-gray-300">林凡应了一声，迅速穿好衣服。他今年十六岁，身材消瘦，但眼神中透着与年龄不符的坚毅。</span>
-{'\n'}
-              <span className="text-orange-400 font-bold">【场景二：村口广场】</span>
-{'\n'}
-              <span className="text-gray-300">村口的广场上已经聚集了不少村民。青云宗的仙师们乘坐飞舟降临，引得众人阵阵惊叹。</span>
-{'\n'}
-              <span className="text-gray-300">为首的是一位白衣青年，面容俊朗，气质出尘。他扫视了一圈人群，淡淡开口：</span>
-{'\n'}
-              <span className="text-sky-300">"今日我青云宗在此招收弟子，凡年龄在十六岁以下者，皆可前来测试灵根。"</span>
-{'\n'}
-              <span className="text-gray-300">林凡深吸一口气，握紧了拳头。他知道，这是他唯一的机会。如果测试通过，他就能踏上修仙之路，改变自己和家人的命运。</span>
-            </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <textarea
+            ref={textareaRef}
+            value={activeTabData?.content || ''}
+            onChange={handleContentChange}
+            className="flex-1 w-full h-full bg-[#1e1e1e] text-[#cccccc] p-4 resize-none outline-none font-mono text-sm leading-6"
+            placeholder="开始写作..."
+            spellCheck={false}
+          />
+        )}
       </div>
     </div>
   );
