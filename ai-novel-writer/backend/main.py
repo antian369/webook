@@ -1,9 +1,14 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from pathlib import Path
 from typing import List, Dict, Any
 import os
+
+# 请求体模型
+class SaveFileRequest(BaseModel):
+    content: str
 
 app = FastAPI(
     title="AI Novel Writer API",
@@ -165,23 +170,23 @@ async def get_file_content(path: str):
 
 
 @app.post("/api/files/content")
-async def save_file_content(path: str, content: str):
+async def save_file_content(path: str, request: SaveFileRequest):
     """保存文件内容"""
     file_path = Path(path)
-    
+
     # 安全检查
     try:
         file_path.relative_to(NOVELS_DIR)
     except ValueError:
         raise HTTPException(status_code=403, detail="Access denied")
-    
+
     try:
         # 确保父目录存在
         file_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         # 写入文件
-        file_path.write_text(content, encoding='utf-8')
-        
+        file_path.write_text(request.content, encoding='utf-8')
+
         return {
             "message": "File saved successfully",
             "path": str(file_path),
