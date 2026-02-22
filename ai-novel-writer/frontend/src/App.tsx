@@ -4,7 +4,8 @@ import { Sidebar } from './components/Sidebar';
 import { EditorArea } from './components/EditorArea';
 import { ChatPanel } from './components/ChatPanel';
 import { StatusBar } from './components/StatusBar';
-import { api, Project } from './api';
+import { api } from './api';
+import type { Project } from './types';
 import './App.css';
 
 function App() {

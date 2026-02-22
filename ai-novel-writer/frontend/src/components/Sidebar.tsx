@@ -1,14 +1,6 @@
 import React, { useState } from 'react';
 import { Folder, File, ChevronRight, ChevronDown, Plus, RefreshCw, ChevronLeft } from 'lucide-react';
-import { Project } from '../api';
-
-interface FileNode {
-  name: string;
-  path: string;
-  type: 'file' | 'directory';
-  is_directory: boolean;
-  children?: FileNode[];
-}
+import type { Project, FileNode } from '../types';
 
 interface SidebarProps {
   width: number;

@@ -1,20 +1,6 @@
+import type { FileNode, Project } from '../types';
+
 const API_BASE_URL = 'http://localhost:8000';
-
-export interface FileNode {
-  name: string;
-  path: string;
-  relative_path: string;
-  type: 'file' | 'directory';
-  is_directory: boolean;
-  children?: FileNode[];
-}
-
-export interface Project {
-  id: string;
-  name: string;
-  path: string;
-  created_at: number;
-}
 
 export const api = {
   // 健康检查
