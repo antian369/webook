@@ -186,6 +186,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       visible: true,
       title: '重命名',
       placeholder: '输入新名称',
+      defaultValue: contextMenu.node.name,  // 默认带上当前文件名
       action: 'rename'
     });
   };
