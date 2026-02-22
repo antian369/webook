@@ -2,20 +2,25 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Save, Eye } from 'lucide-react';
 import { api } from '../api';
 
-interface Tab {
+interface TabInfo {
   id: string;
   name: string;
   path: string;
-  content: string;
-  isModified: boolean;
-  isLoading?: boolean;
 }
 
 interface EditorAreaProps {
-  tabs: Array<{ id: string; name: string; path: string }>;
+  tabs: TabInfo[];
   activeTab: string;
   onTabSelect: (tabId: string) => void;
   onTabClose: (tabId: string) => void;
+}
+
+// 使用 ref 存储标签数据，避免触发重新渲染
+interface TabData {
+  content: string;
+  isModified: boolean;
+  isLoading: boolean;
+  lastSavedContent: string;
 }
 
 export const EditorArea: React.FC<EditorAreaProps> = ({
@@ -24,124 +29,117 @@ export const EditorArea: React.FC<EditorAreaProps> = ({
   onTabSelect,
   onTabClose
 }) => {
-  // 使用 Map 存储标签页数据
-  const [tabDataMap, setTabDataMap] = useState<Map<string, Tab>>(new Map());
   const [currentContent, setCurrentContent] = useState('');
+  const [isModified, setIsModified] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [wordCount, setWordCount] = useState(0);
+  
+  // 使用 ref 存储所有标签数据，不触发重渲染
+  const tabDataRef = useRef<Map<string, TabData>>(new Map());
+  const activeTabRef = useRef<string>('');
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const lastSavedContentRef = useRef<string>('');
+  const isInitialLoadRef = useRef(true);
 
-  // 初始化或更新标签页数据
+  // 初始化标签数据
   useEffect(() => {
-    setTabDataMap(prev => {
-      const newMap = new Map(prev);
-      
-      // 添加新标签页
-      tabs.forEach(tab => {
-        if (!newMap.has(tab.id)) {
-          newMap.set(tab.id, {
-            ...tab,
-            content: '',
-            isModified: false,
-            isLoading: true
-          });
-        }
-      });
-      
-      // 清理已关闭的标签页数据（延迟清理，保留历史）
-      const tabIds = new Set(tabs.map(t => t.id));
-      Array.from(newMap.keys()).forEach(id => {
-        if (!tabIds.has(id)) {
-          newMap.delete(id);
-        }
-      });
-      
-      return newMap;
+    tabs.forEach(tab => {
+      if (!tabDataRef.current.has(tab.id)) {
+        tabDataRef.current.set(tab.id, {
+          content: '',
+          isModified: false,
+          isLoading: false,
+          lastSavedContent: ''
+        });
+      }
     });
   }, [tabs]);
 
-  // 加载当前标签页的文件内容
+  // 切换标签页时加载内容
   useEffect(() => {
     if (!activeTab) {
       setCurrentContent('');
+      setIsModified(false);
+      setWordCount(0);
+      activeTabRef.current = '';
       return;
     }
 
-    const tabData = tabDataMap.get(activeTab);
-    if (!tabData) return;
-
-    // 如果内容已加载，直接显示
-    if (tabData.content !== '' || !tabData.isLoading) {
-      setCurrentContent(tabData.content);
-      lastSavedContentRef.current = tabData.content;
+    // 如果切换到同一个标签，不做任何操作
+    if (activeTab === activeTabRef.current && !isInitialLoadRef.current) {
       return;
     }
 
-    // 加载文件内容
+    isInitialLoadRef.current = false;
+    activeTabRef.current = activeTab;
+
     const loadContent = async () => {
+      const tabData = tabDataRef.current.get(activeTab);
+      const tabInfo = tabs.find(t => t.id === activeTab);
+      
+      if (!tabInfo) return;
+
+      // 如果已经有内容，直接使用
+      if (tabData && tabData.content !== '') {
+        setCurrentContent(tabData.content);
+        setIsModified(tabData.isModified);
+        setWordCount(tabData.content.length);
+        return;
+      }
+
+      // 从服务器加载
+      setIsLoading(true);
       try {
-        const data = await api.getFileContent(tabData.path);
+        const data = await api.getFileContent(tabInfo.path);
         const content = data.content || '';
         
-        setTabDataMap(prev => {
-          const newMap = new Map(prev);
-          const tab = newMap.get(activeTab);
-          if (tab) {
-            tab.content = content;
-            tab.isLoading = false;
-            tab.isModified = false;
-          }
-          return newMap;
+        // 更新 ref
+        tabDataRef.current.set(activeTab, {
+          content,
+          isModified: false,
+          isLoading: false,
+          lastSavedContent: content
         });
         
         setCurrentContent(content);
-        lastSavedContentRef.current = content;
+        setIsModified(false);
+        setWordCount(content.length);
       } catch (error) {
         console.error('Failed to load file:', error);
-        setTabDataMap(prev => {
-          const newMap = new Map(prev);
-          const tab = newMap.get(activeTab);
-          if (tab) {
-            tab.isLoading = false;
-          }
-          return newMap;
-        });
+      } finally {
+        setIsLoading(false);
       }
     };
 
     loadContent();
-  }, [activeTab, tabDataMap]);
+  }, [activeTab]); // 只依赖 activeTab
 
   // 保存文件
   const saveFile = useCallback(async () => {
-    if (!activeTab) return;
-    
-    const tabData = tabDataMap.get(activeTab);
-    if (!tabData || !tabData.isModified) return;
+    if (!activeTabRef.current || !isModified) return;
+
+    const tabInfo = tabs.find(t => t.id === activeTabRef.current);
+    if (!tabInfo) return;
 
     try {
-      await api.saveFileContent(tabData.path, currentContent);
+      await api.saveFileContent(tabInfo.path, currentContent);
       
-      setTabDataMap(prev => {
-        const newMap = new Map(prev);
-        const tab = newMap.get(activeTab);
-        if (tab) {
-          tab.content = currentContent;
-          tab.isModified = false;
-        }
-        return newMap;
-      });
+      // 更新 ref
+      const tabData = tabDataRef.current.get(activeTabRef.current);
+      if (tabData) {
+        tabData.isModified = false;
+        tabData.lastSavedContent = currentContent;
+      }
       
-      lastSavedContentRef.current = currentContent;
+      setIsModified(false);
     } catch (error) {
       console.error('Failed to save file:', error);
-      alert('保存失败: ' + (error instanceof Error ? error.message : '未知错误'));
+      alert('保存失败');
     }
-  }, [activeTab, currentContent, tabDataMap]);
+  }, [currentContent, isModified, tabs]);
 
   // 自动保存（防抖，3秒）
   useEffect(() => {
-    const tabData = tabDataMap.get(activeTab);
-    if (!tabData?.isModified) return;
+    if (!isModified) return;
 
     if (autoSaveTimerRef.current) {
       clearTimeout(autoSaveTimerRef.current);
@@ -156,7 +154,7 @@ export const EditorArea: React.FC<EditorAreaProps> = ({
         clearTimeout(autoSaveTimerRef.current);
       }
     };
-  }, [currentContent, activeTab, tabDataMap, saveFile]);
+  }, [currentContent, isModified, saveFile]);
 
   // 键盘快捷键
   useEffect(() => {
@@ -175,18 +173,16 @@ export const EditorArea: React.FC<EditorAreaProps> = ({
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newContent = e.target.value;
     setCurrentContent(newContent);
+    setWordCount(newContent.length);
     
-    if (activeTab) {
-      const isModified = newContent !== lastSavedContentRef.current;
-      
-      setTabDataMap(prev => {
-        const newMap = new Map(prev);
-        const tab = newMap.get(activeTab);
-        if (tab) {
-          tab.isModified = isModified;
-        }
-        return newMap;
-      });
+    if (activeTabRef.current) {
+      const tabData = tabDataRef.current.get(activeTabRef.current);
+      if (tabData) {
+        const modified = newContent !== tabData.lastSavedContent;
+        tabData.content = newContent;
+        tabData.isModified = modified;
+        setIsModified(modified);
+      }
     }
   };
 
@@ -194,24 +190,28 @@ export const EditorArea: React.FC<EditorAreaProps> = ({
   const handleCloseTab = (tabId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     
-    const tab = tabDataMap.get(tabId);
-    if (tab?.isModified) {
-      const confirm = window.confirm(`"${tab.name}" 有未保存的更改，确定要关闭吗？`);
+    const tabData = tabDataRef.current.get(tabId);
+    const tabInfo = tabs.find(t => t.id === tabId);
+    
+    if (tabData?.isModified) {
+      const confirm = window.confirm(`"${tabInfo?.name}" 有未保存的更改，确定要关闭吗？`);
       if (!confirm) return;
     }
     
+    // 清理数据
+    tabDataRef.current.delete(tabId);
     onTabClose(tabId);
   };
 
-  const activeTabData = tabDataMap.get(activeTab);
-  const wordCount = currentContent.length;
+  const activeTabInfo = tabs.find(tab => tab.id === activeTab);
 
   return (
     <div className="flex-1 flex flex-col bg-[#1e1e1e] min-w-0">
       {/* 标签栏 */}
       <div className="h-9 bg-[#252526] flex items-end px-2 gap-0.5 overflow-x-auto">
         {tabs.map(tab => {
-          const data = tabDataMap.get(tab.id);
+          const data = tabDataRef.current.get(tab.id);
+          const isTabModified = data?.isModified || false;
           return (
             <div
               key={tab.id}
@@ -227,7 +227,7 @@ export const EditorArea: React.FC<EditorAreaProps> = ({
             >
               <span>📄</span>
               <span className="truncate max-w-[150px]">{tab.name}</span>
-              {data?.isModified && <span className="w-2 h-2 rounded-full bg-blue-500" title="未保存" />}
+              {isTabModified && <span className="w-2 h-2 rounded-full bg-blue-500" title="未保存" />}
               <button
                 onClick={(e) => handleCloseTab(tab.id, e)}
                 className="ml-1 hover:bg-[#3e3e42] rounded p-0.5"
@@ -243,16 +243,16 @@ export const EditorArea: React.FC<EditorAreaProps> = ({
       <div className="h-10 bg-[#252526] border-b border-[#3e3e42] flex items-center px-3 gap-2">
         <button 
           className={`p-1.5 rounded text-sm flex items-center gap-1 ${
-            activeTabData?.isModified 
+            isModified 
               ? 'bg-blue-600 hover:bg-blue-700 text-white' 
               : 'hover:bg-[#37373d] text-[#858585]'
           }`}
           title="保存 (Ctrl+S)"
           onClick={saveFile}
-          disabled={!activeTabData?.isModified}
+          disabled={!isModified}
         >
           <Save size={16} />
-          {activeTabData?.isModified && <span className="text-xs">未保存</span>}
+          {isModified && <span className="text-xs">未保存</span>}
         </button>
         <div className="w-px h-5 bg-[#3e3e42]" />
         <button className="p-1.5 hover:bg-[#37373d] rounded text-sm" title="Markdown 预览">
@@ -264,7 +264,7 @@ export const EditorArea: React.FC<EditorAreaProps> = ({
       
       {/* 编辑器区域 */}
       <div className="flex-1 flex overflow-hidden relative">
-        {activeTabData?.isLoading && (
+        {isLoading && (
           <div className="absolute inset-0 bg-[#1e1e1e]/80 flex items-center justify-center z-10">
             <div className="text-[#858585]">加载中...</div>
           </div>
