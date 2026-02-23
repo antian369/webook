@@ -88,4 +88,80 @@ export const api = {
     }
     return response.json();
   },
+
+  // ==================== Agent API ====================
+
+  // 发送消息给 Agent
+  agentChat: async (data: {
+    message: string;
+    sessionId?: string;
+    references?: Array<{ source: string; content: string }>;
+    currentFile?: string;
+    fileContent?: string;
+  }) => {
+    const response = await fetch(`${API_BASE_URL}/api/agent/chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: data.message,
+        session_id: data.sessionId,
+        references: data.references || [],
+        current_file: data.currentFile,
+        file_content: data.fileContent,
+      }),
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || `HTTP ${response.status}`);
+    }
+    
+    return response.json();
+  },
+
+  // 获取对话历史
+  getAgentHistory: async (sessionId: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/agent/history?session_id=${encodeURIComponent(sessionId)}`);
+    if (!response.ok) {
+      throw new Error('Failed to get history');
+    }
+    return response.json();
+  },
+
+  // 获取会话列表
+  getAgentSessions: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/agent/sessions`);
+    if (!response.ok) {
+      throw new Error('Failed to get sessions');
+    }
+    return response.json();
+  },
+
+  // 更新会话标题
+  updateSessionTitle: async (sessionId: string, title: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/agent/session/${encodeURIComponent(sessionId)}/title`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ title }),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to update title');
+    }
+    return response.json();
+  },
+
+  // 清空对话
+  clearAgentSession: async (sessionId: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/agent/clear?session_id=${encodeURIComponent(sessionId)}`, {
+      method: 'POST',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to clear session');
+    }
+    return response.json();
+  },
 };

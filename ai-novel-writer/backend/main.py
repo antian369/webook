@@ -3,8 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import os
+
+# 加载 .env 文件
+from dotenv import load_dotenv
+load_dotenv()
 
 class FileContent(BaseModel):
     content: str
@@ -312,6 +316,106 @@ async def delete_file_or_folder(path: str):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting: {str(e)}")
+
+
+# ==================== Agent 功能 ====================
+
+from agent import NovelAgent, XAIProvider, ChatRequest, ChatResponse
+
+# 全局 Agent 实例
+agent: Optional[NovelAgent] = None
+
+# 初始化 Agent
+def init_agent():
+    """初始化 AI Agent"""
+    global agent
+    
+    xai_api_key = os.getenv("XAI_API_KEY")
+    xai_model = os.getenv("XAI_MODEL", "grok-4-1-fast-reasoning")
+    
+    print(f"Using XAI_MODEL: {xai_model}")  # 打印使用的模型名称
+    
+    if xai_api_key:
+        try:
+            provider = XAIProvider(api_key=xai_api_key, model=xai_model)
+            if provider.validate_config():
+                # 设置对话历史存储目录
+                storage_dir = Path(__file__).parent.parent / "chat_history"
+                agent = NovelAgent(
+                    provider=provider,
+                    project_name="AI Novel Writer",
+                    storage_dir=str(storage_dir)
+                )
+                print("✅ AI Agent 已初始化")
+            else:
+                print("⚠️  XAI API Key 格式无效")
+        except Exception as e:
+            print(f"⚠️  AI Agent 初始化失败: {e}")
+    else:
+        print("⚠️  AI Agent 未配置（缺少 XAI_API_KEY 环境变量）")
+
+# 启动时初始化
+@app.on_event("startup")
+async def startup_event():
+    init_agent()
+
+@app.post("/api/agent/chat", response_model=ChatResponse)
+async def agent_chat(request: ChatRequest):
+    """发送消息给 AI Agent"""
+    if not agent:
+        raise HTTPException(status_code=503, detail="AI Agent 未初始化，请配置 XAI_API_KEY")
+    
+    try:
+        return await agent.chat(request)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/agent/history")
+async def get_agent_history(session_id: str):
+    """获取对话历史"""
+    if not agent:
+        raise HTTPException(status_code=503, detail="AI Agent 未初始化")
+    
+    messages = agent.get_history(session_id)
+    session = agent.sessions.get(session_id)
+    return {
+        "session_id": session_id,
+        "title": session.title if session else None,
+        "messages": [{"role": m.role, "content": m.content} for m in messages]
+    }
+
+@app.post("/api/agent/clear")
+async def clear_agent_session(session_id: str):
+    """清空对话历史"""
+    if not agent:
+        raise HTTPException(status_code=503, detail="AI Agent 未初始化")
+    
+    agent.clear_session(session_id)
+    return {"message": "会话已清空"}
+
+
+@app.get("/api/agent/sessions")
+async def list_agent_sessions():
+    """获取所有会话列表"""
+    if not agent:
+        raise HTTPException(status_code=503, detail="AI Agent 未初始化")
+    
+    sessions = agent.list_sessions_info()
+    return {"sessions": sessions}
+
+
+class UpdateTitleRequest(BaseModel):
+    title: str
+
+
+@app.post("/api/agent/session/{session_id}/title")
+async def update_session_title(session_id: str, data: UpdateTitleRequest):
+    """更新会话标题"""
+    if not agent:
+        raise HTTPException(status_code=503, detail="AI Agent 未初始化")
+    
+    agent.update_session_title(session_id, data.title)
+    return {"message": "标题已更新", "title": data.title}
 
 
 if __name__ == "__main__":

@@ -70,3 +70,6 @@ htmlcov/
 # Project specific - User data should not be committed
 # Ignore all novels data (including example project)
 ai-novel-writer/novels/
+
+# Chat history
+ai-novel-writer/chat_history/
