@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { Send, Loader2, X, Edit2, RefreshCw, Plus, History } from 'lucide-react';
+import { Send, Loader2, X, Edit2, RefreshCw, Plus, History, Trash2 } from 'lucide-react';
 import { api } from '../api';
 
 interface ChatPanelProps {
@@ -135,17 +135,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     }
   };
 
-  // 清空对话
-  const clearChat = async () => {
-    try {
-      await api.clearAgentSession(sessionId);
-      setMessages([]);
-      setReferences([]);
-    } catch (err) {
-      console.error('清空失败:', err);
-    }
-  };
-
   // 开始新对话
   const startNewChat = () => {
     setSessionId(Math.random().toString(36).substring(7));
@@ -259,15 +248,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     >
       {/* 头部 */}
       <div className="px-4 py-3 border-b border-[#3e3e42] flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white">
-            🤖
-          </div>
-          <div>
-            <div className="font-semibold text-sm">创作助手</div>
-            <div className="text-xs text-emerald-400">● 在线</div>
-          </div>
-        </div>
+        <div className="text-sm font-medium">AI 对话</div>
         <div className="flex items-center gap-2">
           <button
             onClick={startNewChat}
@@ -285,14 +266,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             <History size={14} />
             历史
           </button>
-          {messages.length > 0 && (
-            <button
-              onClick={clearChat}
-              className="px-2 py-1 text-xs text-[#858585] hover:text-white hover:bg-[#37373d] rounded"
-            >
-              清空
-            </button>
-          )}
           <div className="px-2 py-1 bg-[#3e3e42] rounded text-xs text-[#858585]">
             {references.length}个引用
           </div>
@@ -356,10 +329,30 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                           e.stopPropagation();
                           startEditTitle(session.session_id, session.title);
                         }}
-                        className="ml-2 p-1 text-[#858585] hover:text-white opacity-0 group-hover:opacity-100"
+                        className="ml-1 p-1 text-[#858585] hover:text-white"
                         title="编辑标题"
                       >
                         <Edit2 size={12} />
+                      </button>
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (confirm('确定要删除这个对话吗？')) {
+                            try {
+                              await api.deleteSession(session.session_id);
+                              setSessionList(prev => prev.filter(s => s.session_id !== session.session_id));
+                              if (session.session_id === sessionId) {
+                                startNewChat();
+                              }
+                            } catch (err) {
+                              console.error('删除失败:', err);
+                            }
+                          }
+                        }}
+                        className="ml-1 p-1 text-[#858585] hover:text-red-400"
+                        title="删除对话"
+                      >
+                        <Trash2 size={12} />
                       </button>
                     </>
                   )}

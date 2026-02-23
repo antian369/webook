@@ -418,6 +418,16 @@ async def update_session_title(session_id: str, data: UpdateTitleRequest):
     return {"message": "标题已更新", "title": data.title}
 
 
+@app.delete("/api/agent/session/{session_id}")
+async def delete_session(session_id: str):
+    """删除会话"""
+    if not agent:
+        raise HTTPException(status_code=503, detail="AI Agent 未初始化")
+    
+    agent.delete_session(session_id)
+    return {"message": "会话已删除"}
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

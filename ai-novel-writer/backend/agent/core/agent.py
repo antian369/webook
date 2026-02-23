@@ -295,3 +295,13 @@ class NovelAgent:
             self._save_session(session)
         else:
             raise ValueError(f"Session {session_id} not found")
+
+    def delete_session(self, session_id: str):
+        """删除会话"""
+        if session_id in self.sessions:
+            del self.sessions[session_id]
+        
+        file_path = self._find_session_file(session_id)
+        if file_path and file_path.exists():
+            file_path.unlink()
+            print(f"🗑️  已删除会话文件 {file_path.name}")

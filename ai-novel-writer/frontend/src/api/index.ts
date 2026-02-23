@@ -154,6 +154,17 @@ export const api = {
     return response.json();
   },
 
+  // 删除会话
+  deleteSession: async (sessionId: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/agent/session/${encodeURIComponent(sessionId)}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to delete session');
+    }
+    return response.json();
+  },
+
   // 清空对话
   clearAgentSession: async (sessionId: string) => {
     const response = await fetch(`${API_BASE_URL}/api/agent/clear?session_id=${encodeURIComponent(sessionId)}`, {
