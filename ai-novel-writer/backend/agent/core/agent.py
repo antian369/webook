@@ -8,7 +8,7 @@ from typing import Dict, List, Optional
 from datetime import datetime
 from pathlib import Path
 
-from ..models import ChatRequest, ChatResponse, ChatSession, Message, AgentContext
+from ..models import ChatRequest, ChatResponse, ChatSession, Message, AgentContext, Reference
 from ..providers.base import LLMProvider
 
 
@@ -80,7 +80,11 @@ class NovelAgent:
                 {
                     "role": msg.role,
                     "content": msg.content,
-                    "timestamp": msg.timestamp.isoformat()
+                    "timestamp": msg.timestamp.isoformat(),
+                    "references": [
+                        {"source": ref.source, "content": ref.content}
+                        for ref in msg.references
+                    ] if msg.references else []
                 }
                 for msg in session.messages
             ]
@@ -121,7 +125,11 @@ class NovelAgent:
                     Message(
                         role=msg["role"],
                         content=msg["content"],
-                        timestamp=datetime.fromisoformat(msg["timestamp"])
+                        timestamp=datetime.fromisoformat(msg["timestamp"]),
+                        references=[
+                            Reference(source=ref["source"], content=ref["content"])
+                            for ref in msg.get("references", [])
+                        ] if msg.get("references") else []
                     )
                     for msg in data["messages"]
                 ]
@@ -224,7 +232,11 @@ class NovelAgent:
             raise RuntimeError(f"AI 调用失败: {str(e)}")
         
         # 保存到历史
-        session.messages.append(Message(role="user", content=request.message))
+        session.messages.append(Message(
+            role="user",
+            content=request.message,
+            references=request.references
+        ))
         session.messages.append(Message(role="assistant", content=response_text))
         session.updated_at = datetime.now()
         

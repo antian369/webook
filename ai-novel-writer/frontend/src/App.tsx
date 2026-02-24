@@ -16,6 +16,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<string>('');
   const [sidebarWidth, setSidebarWidth] = useState(280);
   const [chatWidth, setChatWidth] = useState(380);
+  const [引用文件, set引用文件] = useState<{ name: string; path: string; content: string } | null>(null);
 
   // 加载项目列表
   useEffect(() => {
@@ -74,6 +75,15 @@ function App() {
     setChatWidth(Math.max(300, Math.min(500, chatWidth - delta)));
   };
 
+  const handle文件引用 = async (file: { name: string; path: string }) => {
+    try {
+      const data = await api.getFileContent(file.path);
+      set引用文件({ name: file.name, path: file.path, content: data.content });
+    } catch (error) {
+      console.error('读取文件失败:', error);
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col bg-[#1e1e1e] text-[#cccccc] overflow-hidden">
       <TopNav />
@@ -89,6 +99,7 @@ function App() {
           onProjectChange={setCurrentProject}
           onProjectCreated={loadProjects}
           onFilesChanged={() => loadProjectFiles(currentProject)}
+          on文件引用={handle文件引用}
         />
         
         <EditorArea
@@ -101,6 +112,8 @@ function App() {
         <ChatPanel 
           width={chatWidth}
           onResize={handleChatResize}
+          引用文件={引用文件}
+          on引用文件使用={() => set引用文件(null)}
         />
       </div>
       

@@ -16,6 +16,7 @@ interface SidebarProps {
   onProjectChange: (name: string) => void;
   onProjectCreated: () => void;
   onFilesChanged: () => void;
+  on文件引用?: (file: { name: string; path: string }) => void;
 }
 
 // 文件树项组件
@@ -85,7 +86,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   projects,
   onProjectChange,
   onProjectCreated,
-  onFilesChanged
+  onFilesChanged,
+  on文件引用
 }) => {
   const [isResizing, setIsResizing] = useState(false);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
@@ -202,6 +204,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       title: '确认删除',
       message: `确定要删除 "${contextMenu.node.name}" 吗？此操作不可恢复。`
     });
+  };
+  
+  // 引用文件
+  const handle引用 = () => {
+    if (!contextMenu.node || contextMenu.node.is_directory || !on文件引用) return;
+    on文件引用({ name: contextMenu.node.name, path: contextMenu.node.path });
   };
   
   // 处理文件名：校验扩展名，如果没有则添加默认扩展名
@@ -355,6 +363,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         onNewFolder={handleNewFolder}
         onRename={handleRename}
         onDelete={handleDelete}
+        on引用={handle引用}
       />
       
       {/* 输入对话框 */}

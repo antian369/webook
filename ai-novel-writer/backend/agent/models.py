@@ -28,6 +28,7 @@ class Message(BaseModel):
     role: MessageRole
     content: str
     timestamp: datetime = datetime.now()
+    references: List[Reference] = []
 
 
 class ChatRequest(BaseModel):

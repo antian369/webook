@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Send, Loader2, X, Edit2, RefreshCw, Plus, History, Trash2 } from 'lucide-react';
 import { api } from '../api';
 
@@ -9,6 +9,8 @@ interface ChatPanelProps {
   selectedText?: string;
   onClearSelection?: () => void;
   onApplyAIContent?: (content: string) => void;
+  引用文件?: { name: string; path: string; content: string } | null;
+  on引用文件使用?: () => void;
 }
 
 interface Message {
@@ -36,7 +38,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   currentFile,
   selectedText,
   onClearSelection,
-  onApplyAIContent
+  onApplyAIContent,
+  引用文件,
+  on引用文件使用
 }) => {
   const [isResizing, setIsResizing] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -50,6 +54,19 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [editingTitleValue, setEditingTitleValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // 监听外部引用文件
+  useEffect(() => {
+    if (引用文件) {
+      setReferences(prev => {
+        if (prev.some(r => r.source === 引用文件.name && r.content === 引用文件.content)) {
+          return prev;
+        }
+        return [...prev, { source: 引用文件.name, content: 引用文件.content }];
+      });
+      on引用文件使用?.();
+    }
+  }, [引用文件]);
 
   // 添加引用
   const addReference = useCallback((source: string, content: string) => {

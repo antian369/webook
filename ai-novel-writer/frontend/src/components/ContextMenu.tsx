@@ -10,6 +10,7 @@ interface ContextMenuProps {
   onNewFolder: () => void;
   onRename: () => void;
   onDelete: () => void;
+  on引用?: () => void;
 }
 
 export const ContextMenu: React.FC<ContextMenuProps> = ({
@@ -21,7 +22,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   onNewFile,
   onNewFolder,
   onRename,
-  onDelete
+  onDelete,
+  on引用
 }) => {
   if (!visible) return null;
 
@@ -53,6 +55,19 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             >
               <span>📁</span>
               <span>新建文件夹</span>
+            </button>
+            <div className="border-t border-[#3e3e42] my-1" />
+          </>
+        )}
+        
+        {!isDirectory && on引用 && (
+          <>
+            <button
+              onClick={() => { on引用(); onClose(); }}
+              className="w-full px-4 py-2 text-left text-sm hover:bg-[#37373d] flex items-center gap-2"
+            >
+              <span>📎</span>
+              <span>引用</span>
             </button>
             <div className="border-t border-[#3e3e42] my-1" />
           </>
