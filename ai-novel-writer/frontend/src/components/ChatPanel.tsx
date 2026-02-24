@@ -240,23 +240,36 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     }
   };
 
-  const handleMouseDown = () => {
+  // 拖拽调整大小
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
     setIsResizing(true);
+  };
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      // 右侧边栏拖拽条在左侧，向左移动(负值)应该让面板变宽，所以取反
+      onResize(-e.movementX);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
-  };
 
-  const handleMouseMove = (e: MouseEvent) => {
-    if (isResizing) {
-      onResize(e.movementX);
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsResizing(false);
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
-  };
+    return () => {
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing, onResize]);
 
   return (
     <div
@@ -555,9 +568,15 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
       {/* 拖拽调整宽度 */}
       <div
-        className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500/50"
+        className={`absolute left-0 top-0 bottom-0 w-2 cursor-col-resize z-10 transition-colors ${
+          isResizing ? 'bg-blue-500' : 'hover:bg-blue-500/50'
+        }`}
         onMouseDown={handleMouseDown}
+        style={{ marginLeft: '-4px' }}
       />
+      {isResizing && (
+        <div className="fixed inset-0 z-50 cursor-col-resize" />
+      )}
     </div>
   );
 };

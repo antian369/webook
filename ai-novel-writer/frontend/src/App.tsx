@@ -68,11 +68,11 @@ function App() {
   };
 
   const handleSidebarResize = (delta: number) => {
-    setSidebarWidth(Math.max(200, Math.min(400, sidebarWidth + delta)));
+    setSidebarWidth(prev => Math.max(200, Math.min(400, prev + delta)));
   };
 
   const handleChatResize = (delta: number) => {
-    setChatWidth(Math.max(300, Math.min(500, chatWidth - delta)));
+    setChatWidth(prev => Math.max(300, Math.min(500, prev + delta)));
   };
 
   const handle文件引用 = async (file: { name: string; path: string }) => {

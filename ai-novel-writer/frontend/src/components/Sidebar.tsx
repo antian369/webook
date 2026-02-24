@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { ChevronRight, ChevronDown, Plus, RefreshCw, ChevronLeft } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ChevronRight, ChevronDown, Plus, RefreshCw } from 'lucide-react';
 import type { Project, FileNode } from '../types';
 import { api } from '../api';
 import { ContextMenu } from './ContextMenu';
@@ -115,23 +115,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
     message: string;
   }>({ visible: false, title: '', message: '' });
 
-  const handleMouseDown = () => {
+  // 拖拽调整大小
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
     setIsResizing(true);
+  };
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      onResize(e.movementX);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
-  };
-  
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (isResizing) {
-      onResize(e.movementX);
-    }
+
+    return () => {
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
   }, [isResizing, onResize]);
-  
-  const handleMouseUp = useCallback(() => {
-    setIsResizing(false);
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
-  }, [handleMouseMove]);
   
   const handleToggleExpand = (path: string) => {
     setExpandedNodes(prev => {
@@ -348,9 +360,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
       
       {/* 拖拽调整宽度 */}
       <div
-        className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500/50"
+        className={`absolute right-0 top-0 bottom-0 w-2 cursor-col-resize z-10 transition-colors ${
+          isResizing ? 'bg-blue-500' : 'hover:bg-blue-500/50'
+        }`}
         onMouseDown={handleMouseDown}
+        style={{ marginRight: '-4px' }}
       />
+      {isResizing && (
+        <div className="fixed inset-0 z-50 cursor-col-resize" />
+      )}
       
       {/* 右键菜单 */}
       <ContextMenu
