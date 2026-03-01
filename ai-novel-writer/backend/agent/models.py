@@ -38,6 +38,7 @@ class ChatRequest(BaseModel):
     references: List[Reference] = []
     current_file: Optional[str] = None
     file_content: Optional[str] = None
+    command_type: Optional[str] = None  # 快捷指令类型: outline, continue, rewrite, brainstorm
 
 
 class ChatResponse(BaseModel):

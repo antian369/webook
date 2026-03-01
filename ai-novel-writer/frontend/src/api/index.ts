@@ -66,9 +66,18 @@ export const api = {
   },
 
   // 重命名文件或文件夹
-  renameFileOrFolder: async (oldPath: string, newPath: string) => {
-    const response = await fetch(`${API_BASE_URL}/api/files/rename?old_path=${encodeURIComponent(oldPath)}&new_path=${encodeURIComponent(newPath)}`, {
+  // oldPath 和 newPath 都是相对于项目根目录的路径，如 "创作区/正文/第1章/大纲.md"
+  renameFileOrFolder: async (projectName: string, oldPath: string, newPath: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/files/rename`, {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        project_name: projectName,
+        old_path: oldPath,
+        new_path: newPath
+      }),
     });
     if (!response.ok) {
       const error = await response.json();
@@ -95,9 +104,11 @@ export const api = {
   agentChat: async (data: {
     message: string;
     sessionId?: string;
-    references?: Array<{ source: string; content: string }>;
+    references?: Array<{ source: string; content: string; startLine?: number; endLine?: number }>;
     currentFile?: string;
     fileContent?: string;
+    projectName?: string;
+    commandType?: string;
   }) => {
     const response = await fetch(`${API_BASE_URL}/api/agent/chat`, {
       method: 'POST',
@@ -107,9 +118,16 @@ export const api = {
       body: JSON.stringify({
         message: data.message,
         session_id: data.sessionId,
-        references: data.references || [],
+        references: (data.references || []).map(ref => ({
+          source: ref.source,
+          content: ref.content,
+          line_start: ref.startLine,
+          line_end: ref.endLine,
+        })),
         current_file: data.currentFile,
         file_content: data.fileContent,
+        project_name: data.projectName,
+        command_type: data.commandType,
       }),
     });
     

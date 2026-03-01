@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Save, Eye } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { X, Save, WrapText } from 'lucide-react';
 import { api } from '../api';
 
 interface TabInfo {
@@ -8,14 +8,22 @@ interface TabInfo {
   path: string;
 }
 
+export interface SelectionInfo {
+  text: string;
+  startLine: number;
+  endLine: number;
+  fileName: string;
+  filePath: string;
+}
+
 interface EditorAreaProps {
   tabs: TabInfo[];
   activeTab: string;
   onTabSelect: (tabId: string) => void;
   onTabClose: (tabId: string) => void;
+  onSelectionChange?: (selection: SelectionInfo | null) => void;
 }
 
-// 使用 ref 存储标签数据，避免触发重新渲染
 interface TabData {
   content: string;
   isModified: boolean;
@@ -27,18 +35,27 @@ export const EditorArea: React.FC<EditorAreaProps> = ({
   tabs,
   activeTab,
   onTabSelect,
-  onTabClose
+  onTabClose,
+  onSelectionChange
 }) => {
   const [currentContent, setCurrentContent] = useState('');
   const [isModified, setIsModified] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [wordCount, setWordCount] = useState(0);
+  const [showFloatToolbar, setShowFloatToolbar] = useState(false);
+  const [floatToolbarPos, setFloatToolbarPos] = useState({ x: 0, y: 0 });
+  const [selection, setSelection] = useState<SelectionInfo | null>(null);
+  const mousePosRef = useRef({ x: 0, y: 0 });
+  const [wordWrap, setWordWrap] = useState(false);
   
-  // 使用 ref 存储所有标签数据，不触发重渲染
   const tabDataRef = useRef<Map<string, TabData>>(new Map());
   const activeTabRef = useRef<string>('');
-  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoadRef = useRef(true);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const lineNumbersRef = useRef<HTMLDivElement>(null);
+  const editorContainerRef = useRef<HTMLDivElement>(null);
+  const toolbarTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 初始化标签数据
   useEffect(() => {
@@ -64,7 +81,6 @@ export const EditorArea: React.FC<EditorAreaProps> = ({
       return;
     }
 
-    // 如果切换到同一个标签，不做任何操作
     if (activeTab === activeTabRef.current && !isInitialLoadRef.current) {
       return;
     }
@@ -78,7 +94,6 @@ export const EditorArea: React.FC<EditorAreaProps> = ({
       
       if (!tabInfo) return;
 
-      // 如果已经有内容，直接使用
       if (tabData && tabData.content !== '') {
         setCurrentContent(tabData.content);
         setIsModified(tabData.isModified);
@@ -86,13 +101,11 @@ export const EditorArea: React.FC<EditorAreaProps> = ({
         return;
       }
 
-      // 从服务器加载
       setIsLoading(true);
       try {
         const data = await api.getFileContent(tabInfo.path);
         const content = data.content || '';
         
-        // 更新 ref
         tabDataRef.current.set(activeTab, {
           content,
           isModified: false,
@@ -111,7 +124,7 @@ export const EditorArea: React.FC<EditorAreaProps> = ({
     };
 
     loadContent();
-  }, [activeTab]); // 只依赖 activeTab
+  }, [activeTab, tabs]);
 
   // 保存文件
   const saveFile = useCallback(async () => {
@@ -123,7 +136,6 @@ export const EditorArea: React.FC<EditorAreaProps> = ({
     try {
       await api.saveFileContent(tabInfo.path, currentContent);
       
-      // 更新 ref
       const tabData = tabDataRef.current.get(activeTabRef.current);
       if (tabData) {
         tabData.isModified = false;
@@ -137,7 +149,7 @@ export const EditorArea: React.FC<EditorAreaProps> = ({
     }
   }, [currentContent, isModified, tabs]);
 
-  // 自动保存（防抖，3秒）
+  // 自动保存
   useEffect(() => {
     if (!isModified) return;
 
@@ -163,11 +175,148 @@ export const EditorArea: React.FC<EditorAreaProps> = ({
         e.preventDefault();
         saveFile();
       }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'i') {
+        e.preventDefault();
+        if (selection) {
+          onSelectionChange?.(selection);
+          setShowFloatToolbar(false);
+          if (textareaRef.current) {
+            const end = textareaRef.current.selectionEnd;
+            textareaRef.current.selectionStart = end;
+            textareaRef.current.selectionEnd = end;
+            textareaRef.current.focus();
+          }
+        }
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [saveFile]);
+  }, [saveFile, selection, onSelectionChange]);
+
+  // 计算行号（基于实际渲染高度）
+  const calculateLineNumbers = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (!textarea || !currentContent) return [];
+
+    const lines = currentContent.split('\n');
+    const result: number[] = [];
+
+    lines.forEach((_, lineIndex) => {
+      const lineNum = lineIndex + 1;
+      
+      if (wordWrap) {
+        // 计算这行会占用多少显示行（基于文本实际测量）
+        const lineText = lines[lineIndex];
+        const testDiv = document.createElement('div');
+        testDiv.style.cssText = getComputedStyle(textarea).cssText;
+        testDiv.style.position = 'absolute';
+        testDiv.style.visibility = 'hidden';
+        testDiv.style.height = 'auto';
+        testDiv.style.whiteSpace = 'pre-wrap';
+        testDiv.style.wordWrap = 'break-word';
+        testDiv.style.width = `${textarea.clientWidth - 32}px`;
+        testDiv.textContent = lineText || ' ';
+        document.body.appendChild(testDiv);
+        
+        const lineHeight = 24; // 基础行高
+        const actualHeight = testDiv.clientHeight;
+        const wrapCount = Math.max(1, Math.round(actualHeight / lineHeight));
+        
+        document.body.removeChild(testDiv);
+        
+        // 添加行号（只有第一行显示数字，其他显示空）
+        for (let i = 0; i < wrapCount; i++) {
+          result.push(i === 0 ? lineNum : 0); // 0 表示不显示行号
+        }
+      } else {
+        result.push(lineNum);
+      }
+    });
+
+    return result;
+  }, [currentContent, wordWrap]);
+
+  // 获取字符位置对应的行号
+  const getLineNumberFromPosition = (content: string, position: number): number => {
+    const lines = content.substring(0, position).split('\n');
+    return lines.length;
+  };
+
+  // 处理文本选择 - 在鼠标位置显示引用按钮
+  const handleTextSelection = (e?: React.MouseEvent) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value.substring(start, end);
+
+    if (text && text.trim()) {
+      const startLine = getLineNumberFromPosition(textarea.value, start);
+      const endLine = getLineNumberFromPosition(textarea.value, end);
+      
+      const activeTabInfo = tabs.find(t => t.id === activeTab);
+      
+      const newSelection: SelectionInfo = {
+        text: text.trim(),
+        startLine,
+        endLine,
+        fileName: activeTabInfo?.name || '未知文件',
+        filePath: activeTabInfo?.path || ''
+      };
+      
+      setSelection(newSelection);
+      
+      // 在鼠标位置显示引用按钮（如果有鼠标事件），否则使用上次记录的鼠标位置
+      const mouseX = e?.clientX ?? mousePosRef.current.x;
+      const mouseY = e?.clientY ?? mousePosRef.current.y;
+      
+      setFloatToolbarPos({
+        x: mouseX + 10,
+        y: mouseY - 40
+      });
+      setShowFloatToolbar(true);
+      
+      // 自动隐藏工具栏
+      if (toolbarTimerRef.current) {
+        clearTimeout(toolbarTimerRef.current);
+      }
+      toolbarTimerRef.current = setTimeout(() => {
+        setShowFloatToolbar(false);
+      }, 5000);
+    } else {
+      setSelection(null);
+      setShowFloatToolbar(false);
+    }
+  };
+
+  // 记录鼠标位置
+  const handleMouseMove = (e: React.MouseEvent) => {
+    mousePosRef.current = { x: e.clientX, y: e.clientY };
+  };
+
+  // 点击引用按钮
+  const handleQuoteClick = () => {
+    if (selection) {
+      onSelectionChange?.(selection);
+      setShowFloatToolbar(false);
+      if (textareaRef.current) {
+        const end = textareaRef.current.selectionEnd;
+        textareaRef.current.selectionStart = end;
+        textareaRef.current.selectionEnd = end;
+        textareaRef.current.focus();
+      }
+    }
+  };
+
+  // 处理滚动同步
+  const handleScroll = (e: React.UIEvent<HTMLTextAreaElement>) => {
+    const scrollTop = e.currentTarget.scrollTop;
+    if (lineNumbersRef.current) {
+      lineNumbersRef.current.scrollTop = scrollTop;
+    }
+  };
 
   // 处理文本变化
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -184,6 +333,9 @@ export const EditorArea: React.FC<EditorAreaProps> = ({
         setIsModified(modified);
       }
     }
+    
+    setSelection(null);
+    setShowFloatToolbar(false);
   };
 
   // 处理关闭标签页
@@ -198,12 +350,14 @@ export const EditorArea: React.FC<EditorAreaProps> = ({
       if (!confirm) return;
     }
     
-    // 清理数据
     tabDataRef.current.delete(tabId);
     onTabClose(tabId);
   };
 
-  const activeTabInfo = tabs.find(tab => tab.id === activeTab);
+  // 计算行号
+  const lineNumbers = useMemo(() => {
+    return calculateLineNumbers();
+  }, [calculateLineNumbers]);
 
   return (
     <div className="flex-1 flex flex-col bg-[#1e1e1e] min-w-0">
@@ -255,15 +409,23 @@ export const EditorArea: React.FC<EditorAreaProps> = ({
           {isModified && <span className="text-xs">未保存</span>}
         </button>
         <div className="w-px h-5 bg-[#3e3e42]" />
-        <button className="p-1.5 hover:bg-[#37373d] rounded text-sm" title="Markdown 预览">
-          <Eye size={16} />
+        <button 
+          className={`p-1.5 rounded text-sm ${
+            wordWrap 
+              ? 'bg-blue-600 text-white' 
+              : 'hover:bg-[#37373d] text-[#858585]'
+          }`}
+          title="自动换行"
+          onClick={() => setWordWrap(!wordWrap)}
+        >
+          <WrapText size={16} />
         </button>
         <div className="flex-1" />
         <span className="text-sm text-[#858585]">📝 {wordCount} 字符</span>
       </div>
       
       {/* 编辑器区域 */}
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="flex-1 flex overflow-hidden relative" ref={editorContainerRef}>
         {isLoading && (
           <div className="absolute inset-0 bg-[#1e1e1e]/80 flex items-center justify-center z-10">
             <div className="text-[#858585]">加载中...</div>
@@ -278,13 +440,71 @@ export const EditorArea: React.FC<EditorAreaProps> = ({
             </div>
           </div>
         ) : (
-          <textarea
-            value={currentContent}
-            onChange={handleContentChange}
-            className="flex-1 w-full h-full bg-[#1e1e1e] text-[#cccccc] p-4 resize-none outline-none font-mono text-sm leading-6"
-            placeholder="开始写作..."
-            spellCheck={false}
-          />
+          <div className="flex flex-1 overflow-hidden">
+            {/* 行号区域 */}
+            <div
+              ref={lineNumbersRef}
+              className="w-12 bg-[#1e1e1e] border-r border-[#3e3e42] overflow-hidden select-none py-4 pr-2 text-right"
+              style={{ 
+                fontFamily: 'monospace',
+                fontSize: '14px'
+              }}
+            >
+              {lineNumbers.map((num, i) => (
+                <div 
+                  key={i} 
+                  className={num > 0 ? 'text-[#858585]' : 'text-transparent'}
+                  style={{ 
+                    height: '24px',
+                    lineHeight: '24px'
+                  }}
+                >
+                  {num > 0 ? num : '.'}
+                </div>
+              ))}
+            </div>
+            
+            {/* 文本编辑区域 */}
+            <div className="flex-1 relative">
+              <textarea
+                ref={textareaRef}
+                value={currentContent}
+                onChange={handleContentChange}
+                onMouseUp={handleTextSelection}
+                onMouseMove={handleMouseMove}
+                onKeyUp={() => handleTextSelection()}
+                onScroll={handleScroll}
+                className="w-full h-full bg-[#1e1e1e] text-[#cccccc] p-4 resize-none outline-none font-mono text-sm"
+                style={{ 
+                  lineHeight: '24px',
+                  whiteSpace: wordWrap ? 'pre-wrap' : 'pre',
+                  overflowWrap: wordWrap ? 'break-word' : 'normal',
+                  overflowX: wordWrap ? 'hidden' : 'auto'
+                }}
+                placeholder="开始写作...&#10;选中文字后按 Ctrl+I 引用到对话"
+                spellCheck={false}
+              />
+              
+              {/* 浮动工具栏 - 在选区结束位置显示 */}
+              {showFloatToolbar && selection && (
+                <div
+                  className="fixed bg-[#252526] border border-[#3e3e42] rounded shadow-lg p-1 z-50"
+                  style={{
+                    left: `${floatToolbarPos.x}px`,
+                    top: `${floatToolbarPos.y}px`,
+                  }}
+                >
+                  <button
+                    onClick={handleQuoteClick}
+                    className="px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs text-white"
+                    title="Ctrl+I"
+                  >
+                    📋 引用
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </div>

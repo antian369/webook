@@ -15,6 +15,27 @@ from ..providers.base import LLMProvider
 class NovelAgent:
     """小说创作 Agent"""
     
+    # 快捷指令配置：系统提示词补充 + 温度设置
+    # 温度说明：高温度(0.8+)更有创意，低温度(0.3-)更稳定
+    COMMAND_CONFIG: Dict[str, Dict] = {
+        'outline': {
+            'prompt': '\n【任务】生成章节大纲\n请发挥创意，提供结构清晰、有想象力的大纲。',
+            'temperature': 0.9,  # 高温度，更有联想
+        },
+        'brainstorm': {
+            'prompt': '\n【任务】头脑风暴\n请大胆联想，提供多个不同方向的创意建议。',
+            'temperature': 0.95,  # 最高温度，最大化创意
+        },
+        'continue': {
+            'prompt': '\n【任务】续写\n要求：直接输出续写内容，不要输出总结、说明或"以下是续写"等额外文字。',
+            'temperature': 0.5,  # 中等温度，平衡创意和一致性
+        },
+        'rewrite': {
+            'prompt': '\n【任务】改写\n要求：直接输出改写后的内容，不要输出总结、对比或"以下是改写"等额外文字。',
+            'temperature': 0.5,
+        },
+    }
+    
     # 系统提示词模板
     SYSTEM_PROMPT_TEMPLATE = """你是一位专业的小说创作助手，擅长帮助作者构思情节、润色文字、生成内容。
 
@@ -26,7 +47,7 @@ class NovelAgent:
 {reference_section}
 
 ## 你的能力
-1. 根据上下文续写、改写、扩写内容
+1. 根据上下文续写、改写内容
 2. 提供情节建议和创意灵感
 3. 帮助检查逻辑一致性
 4. 优化文笔和叙事节奏
@@ -161,7 +182,8 @@ class NovelAgent:
         self,
         current_file: Optional[str] = None,
         file_content: Optional[str] = None,
-        references: List = []
+        references: List = [],
+        command_type: Optional[str] = None
     ) -> str:
         """构建系统提示词"""
         # 文件内容部分
@@ -186,12 +208,17 @@ class NovelAgent:
 """)
             reference_section = "## 用户引用的内容\n" + "\n".join(ref_texts)
         
+        # 快捷指令提示词
+        command_section = ""
+        if command_type and command_type in self.COMMAND_CONFIG:
+            command_section = self.COMMAND_CONFIG[command_type]['prompt']
+        
         return self.SYSTEM_PROMPT_TEMPLATE.format(
             project_name=self.project_name,
             current_file=current_file or "无",
             file_section=file_section,
             reference_section=reference_section
-        )
+        ) + command_section
     
     async def chat(self, request: ChatRequest) -> ChatResponse:
         """
@@ -211,7 +238,8 @@ class NovelAgent:
         system_prompt = self._build_system_prompt(
             current_file=request.current_file,
             file_content=request.file_content,
-            references=request.references
+            references=request.references,
+            command_type=request.command_type
         )
         
         # 构建消息列表
@@ -225,9 +253,14 @@ class NovelAgent:
         # 添加当前用户消息
         messages.append(Message(role="user", content=request.message))
         
+        # 根据指令类型获取温度设置
+        temperature = 0.7  # 默认温度
+        if request.command_type and request.command_type in self.COMMAND_CONFIG:
+            temperature = self.COMMAND_CONFIG[request.command_type]['temperature']
+        
         # 调用 LLM
         try:
-            response_text = await self.provider.chat(messages)
+            response_text = await self.provider.chat(messages, temperature=temperature)
         except Exception as e:
             raise RuntimeError(f"AI 调用失败: {str(e)}")
         

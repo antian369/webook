@@ -1,16 +1,17 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Send, Loader2, X, Edit2, RefreshCw, Plus, History, Trash2 } from 'lucide-react';
 import { api } from '../api';
+import type { SelectionInfo } from './EditorArea';
 
 interface ChatPanelProps {
   width: number;
   onResize: (delta: number) => void;
   currentFile?: { name: string; path: string; content: string } | null;
-  selectedText?: string;
+  editorSelection?: SelectionInfo | null;
   onClearSelection?: () => void;
-  onApplyAIContent?: (content: string) => void;
   引用文件?: { name: string; path: string; content: string } | null;
   on引用文件使用?: () => void;
+  projectName?: string;
 }
 
 interface Message {
@@ -22,6 +23,8 @@ interface Message {
 interface Reference {
   source: string;
   content: string;
+  startLine?: number;
+  endLine?: number;
 }
 
 interface SessionInfo {
@@ -36,11 +39,11 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   width,
   onResize,
   currentFile,
-  selectedText,
+  editorSelection,
   onClearSelection,
-  onApplyAIContent,
   引用文件,
-  on引用文件使用
+  on引用文件使用,
+  projectName
 }) => {
   const [isResizing, setIsResizing] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -53,7 +56,17 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   const [sessionList, setSessionList] = useState<SessionInfo[]>([]);
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [editingTitleValue, setEditingTitleValue] = useState('');
+  const [selectedCommand, setSelectedCommand] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // 添加引用
+  const addReference = useCallback((source: string, content: string, startLine?: number, endLine?: number) => {
+    setReferences(prev => {
+      // 避免重复引用
+      if (prev.some(r => r.content === content)) return prev;
+      return [...prev, { source, content, startLine, endLine }];
+    });
+  }, []);
 
   // 监听外部引用文件
   useEffect(() => {
@@ -66,48 +79,30 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       });
       on引用文件使用?.();
     }
-  }, [引用文件]);
+  }, [引用文件, on引用文件使用]);
 
-  // 添加引用
-  const addReference = useCallback((source: string, content: string) => {
-    setReferences(prev => {
-      // 避免重复引用
-      if (prev.some(r => r.content === content)) return prev;
-      return [...prev, { source, content }];
-    });
-  }, []);
+  // 监听编辑器选中文本 - 直接添加到引用
+  useEffect(() => {
+    if (editorSelection) {
+      addReference(
+        editorSelection.fileName,
+        editorSelection.text,
+        editorSelection.startLine,
+        editorSelection.endLine
+      );
+      onClearSelection?.();
+    }
+  }, [editorSelection, addReference, onClearSelection]);
 
   // 移除引用
   const removeReference = (index: number) => {
     setReferences(prev => prev.filter((_, i) => i !== index));
   };
 
-  // 添加快捷指令
-  const sendQuickCommand = (command: string) => {
-    let prompt = '';
-    switch (command) {
-      case 'outline':
-        prompt = '请为当前章节生成一个详细的大纲，包括场景划分和关键情节';
-        break;
-      case 'continue':
-        prompt = '请根据上文续写接下来的内容，保持风格一致';
-        break;
-      case 'rewrite':
-        prompt = '请改写以下内容，使其更加生动有张力';
-        break;
-      case 'expand':
-        prompt = '请扩写以下内容，增加细节描写';
-        break;
-      case 'brainstorm':
-        prompt = '请针对当前情节提供一些创意建议和灵感';
-        break;
-    }
-    setInput(prompt);
-    textareaRef.current?.focus();
-  };
 
-  // 发送消息
-  const sendMessage = async () => {
+
+  // 发送消息（带命令类型）
+  const sendMessageWithCommand = async (commandType?: string) => {
     if (!input.trim() || isLoading) return;
 
     const userMessage = input.trim();
@@ -119,21 +114,14 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     setIsLoading(true);
 
     try {
-      // 如果有选中文本但没有添加到引用，自动添加
-      let finalReferences = references;
-      if (selectedText && !references.some(r => r.content === selectedText)) {
-        const newRef = { source: currentFile?.name || '选中文本', content: selectedText };
-        finalReferences = [...references, newRef];
-        setReferences(finalReferences);
-        onClearSelection?.();
-      }
-
       const response = await api.agentChat({
         message: userMessage,
         sessionId,
-        references: finalReferences,
+        references: references,
         currentFile: currentFile?.path,
-        fileContent: currentFile?.content
+        fileContent: currentFile?.content,
+        projectName,
+        commandType
       });
 
       // 添加 AI 回复
@@ -143,13 +131,25 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         timestamp: new Date() 
       }]);
 
-      // 清空引用（已使用过）
+      // 清空引用
       setReferences([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : '发送失败');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // 发送消息（普通发送）
+  const sendMessage = () => {
+    sendMessageWithCommand(selectedCommand || undefined);
+    // 发送后清除选中的标签
+    setSelectedCommand(null);
+  };
+
+  // 切换快捷指令标签
+  const toggleCommand = (command: string) => {
+    setSelectedCommand(prev => prev === command ? null : command);
   };
 
   // 开始新对话
@@ -351,6 +351,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                       <button
                         onClick={() => switchSession(session.session_id)}
                         className="flex-1 text-left truncate"
+                        title={`创建于 ${new Date(session.created_at).toLocaleString('zh-CN')}`}
                       >
                         {session.title || session.session_id.slice(0, 8)}
                       </button>
@@ -418,16 +419,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                   {msg.content.split('\n').map((line, i) => (
                     <div key={i}>{line || ' '}</div>
                   ))}
-                  {msg.role === 'assistant' && onApplyAIContent && (
-                    <div className="mt-2 pt-2 border-t border-white/20">
-                      <button
-                        onClick={() => onApplyAIContent(msg.content)}
-                        className="text-xs bg-white/20 hover:bg-white/30 px-2 py-1 rounded"
-                      >
-                        ✓ 应用此内容
-                      </button>
-                    </div>
-                  )}
                 </div>
                 {/* 操作按钮 */}
                 <div className={`absolute ${msg.role === 'user' ? 'left-0' : 'right-0'} top-0 -translate-y-full opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 p-1`}>
@@ -471,7 +462,12 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           <div className="flex flex-wrap gap-1.5 mb-3">
             {references.map((ref, index) => (
               <div key={index} className="px-2 py-1 bg-[#3e3e42] border border-blue-500/50 rounded text-xs flex items-center gap-1.5 max-w-full">
-                <span className="truncate">📄 {ref.source}</span>
+                <span className="truncate">
+                  📄 {ref.source}
+                  {ref.startLine !== undefined && ref.endLine !== undefined && (
+                    <span className="text-blue-400 ml-1">{ref.startLine}~{ref.endLine}行</span>
+                  )}
+                </span>
                 <button
                   onClick={() => removeReference(index)}
                   className="text-[#858585] hover:text-white ml-1"
@@ -480,24 +476,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                 </button>
               </div>
             ))}
-          </div>
-        )}
-
-        {/* 快速添加选中引用 */}
-        {selectedText && (
-          <div className="flex items-center gap-2 mb-3 p-2 bg-blue-900/30 rounded border border-blue-500/30">
-            <span className="text-xs text-blue-300 flex-1 truncate">
-              选中了 {selectedText.length} 个字符
-            </span>
-            <button
-              onClick={() => {
-                addReference(currentFile?.name || '选中文本', selectedText);
-                onClearSelection?.();
-              }}
-              className="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded"
-            >
-              添加到引用
-            </button>
           </div>
         )}
 
@@ -534,32 +512,42 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         {/* 快捷操作 */}
         <div className="flex gap-2 mt-3 flex-wrap">
           <button
-            onClick={() => sendQuickCommand('outline')}
-            className="px-3 py-1.5 bg-[#3e3e42] border border-[#3e3e42] hover:border-blue-500 rounded text-xs transition-colors"
+            onClick={() => toggleCommand('outline')}
+            className={`px-3 py-1.5 border rounded text-xs transition-colors ${
+              selectedCommand === 'outline'
+                ? 'bg-blue-600 border-blue-500 text-white'
+                : 'bg-[#3e3e42] border-[#3e3e42] hover:border-blue-500'
+            }`}
           >
             📝 生成大纲
           </button>
           <button
-            onClick={() => sendQuickCommand('continue')}
-            className="px-3 py-1.5 bg-[#3e3e42] border border-[#3e3e42] hover:border-blue-500 rounded text-xs transition-colors"
+            onClick={() => toggleCommand('continue')}
+            className={`px-3 py-1.5 border rounded text-xs transition-colors ${
+              selectedCommand === 'continue'
+                ? 'bg-blue-600 border-blue-500 text-white'
+                : 'bg-[#3e3e42] border-[#3e3e42] hover:border-blue-500'
+            }`}
           >
             ✏️ 续写
           </button>
           <button
-            onClick={() => sendQuickCommand('rewrite')}
-            className="px-3 py-1.5 bg-[#3e3e42] border border-[#3e3e42] hover:border-blue-500 rounded text-xs transition-colors"
+            onClick={() => toggleCommand('rewrite')}
+            className={`px-3 py-1.5 border rounded text-xs transition-colors ${
+              selectedCommand === 'rewrite'
+                ? 'bg-blue-600 border-blue-500 text-white'
+                : 'bg-[#3e3e42] border-[#3e3e42] hover:border-blue-500'
+            }`}
           >
             🔄 改写
           </button>
           <button
-            onClick={() => sendQuickCommand('expand')}
-            className="px-3 py-1.5 bg-[#3e3e42] border border-[#3e3e42] hover:border-blue-500 rounded text-xs transition-colors"
-          >
-            ➕ 扩写
-          </button>
-          <button
-            onClick={() => sendQuickCommand('brainstorm')}
-            className="px-3 py-1.5 bg-[#3e3e42] border border-[#3e3e42] hover:border-blue-500 rounded text-xs transition-colors"
+            onClick={() => toggleCommand('brainstorm')}
+            className={`px-3 py-1.5 border rounded text-xs transition-colors ${
+              selectedCommand === 'brainstorm'
+                ? 'bg-blue-600 border-blue-500 text-white'
+                : 'bg-[#3e3e42] border-[#3e3e42] hover:border-blue-500'
+            }`}
           >
             💡 头脑风暴
           </button>

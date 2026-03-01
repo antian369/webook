@@ -28,7 +28,7 @@ class XAIProvider(LLMProvider):
     def name(self) -> str:
         return "x.ai"
     
-    async def chat(self, messages: List[Message]) -> str:
+    async def chat(self, messages: List[Message], temperature: float = 0.7) -> str:
         """调用 x.ai chat completions API"""
         payload = {
             "model": self.model,
@@ -36,7 +36,7 @@ class XAIProvider(LLMProvider):
                 {"role": msg.role, "content": msg.content}
                 for msg in messages
             ],
-            "temperature": 0.7,
+            "temperature": temperature,
             "max_tokens": 4096
         }
         

@@ -1,36 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { TopNav } from './components/TopNav';
 import { Sidebar } from './components/Sidebar';
-import { EditorArea } from './components/EditorArea';
+import { EditorArea, type SelectionInfo } from './components/EditorArea';
 import { ChatPanel } from './components/ChatPanel';
 import { StatusBar } from './components/StatusBar';
 import { api } from './api';
-import type { Project } from './types';
+import type { Project, FileNode } from './types';
 import './App.css';
 
 function App() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentProject, setCurrentProject] = useState<string>('');
-  const [files, setFiles] = useState<any[]>([]);
+  const [files, setFiles] = useState<FileNode[]>([]);
   const [openTabs, setOpenTabs] = useState<Array<{ id: string; name: string; path: string }>>([]);
   const [activeTab, setActiveTab] = useState<string>('');
   const [sidebarWidth, setSidebarWidth] = useState(280);
   const [chatWidth, setChatWidth] = useState(380);
   const [引用文件, set引用文件] = useState<{ name: string; path: string; content: string } | null>(null);
+  const [editorSelection, setEditorSelection] = useState<SelectionInfo | null>(null);
 
   // 加载项目列表
-  useEffect(() => {
-    loadProjects();
-  }, []);
-
-  // 加载当前项目的文件
-  useEffect(() => {
-    if (currentProject) {
-      loadProjectFiles(currentProject);
-    }
-  }, [currentProject]);
-
-  const loadProjects = async () => {
+  const loadProjects = useCallback(async () => {
     try {
       const data = await api.getProjects();
       setProjects(data.projects);
@@ -40,16 +30,31 @@ function App() {
     } catch (error) {
       console.error('Failed to load projects:', error);
     }
-  };
+  }, [currentProject]);
 
-  const loadProjectFiles = async (projectName: string) => {
+  // 加载当前项目的文件
+  const loadProjectFiles = useCallback(async (projectName: string) => {
     try {
       const data = await api.getProjectFiles(projectName);
       setFiles(data.files);
     } catch (error) {
       console.error('Failed to load project files:', error);
     }
-  };
+  }, []);
+
+  // 初始加载项目列表
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadProjects();
+  }, [loadProjects]);
+
+  // 加载当前项目的文件
+  useEffect(() => {
+    if (currentProject) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadProjectFiles(currentProject);
+    }
+  }, [currentProject, loadProjectFiles]);
 
   const handleFileSelect = (file: { name: string; path: string }) => {
     const tabId = file.path;
@@ -84,6 +89,21 @@ function App() {
     }
   };
 
+  // 处理选中文本变化
+  const handleSelectionChange = (selection: SelectionInfo | null) => {
+    setEditorSelection(selection);
+  };
+
+  // 获取当前活动文件内容
+  const getCurrentFileInfo = () => {
+    const activeTabInfo = openTabs.find(tab => tab.id === activeTab);
+    return {
+      name: activeTabInfo?.name || '',
+      path: activeTabInfo?.path || '',
+      content: ''
+    };
+  };
+
   return (
     <div className="h-screen flex flex-col bg-[#1e1e1e] text-[#cccccc] overflow-hidden">
       <TopNav />
@@ -107,6 +127,7 @@ function App() {
           activeTab={activeTab}
           onTabSelect={setActiveTab}
           onTabClose={handleTabClose}
+          onSelectionChange={handleSelectionChange}
         />
         
         <ChatPanel 
@@ -114,6 +135,10 @@ function App() {
           onResize={handleChatResize}
           引用文件={引用文件}
           on引用文件使用={() => set引用文件(null)}
+          currentFile={getCurrentFileInfo()}
+          editorSelection={editorSelection}
+          onClearSelection={() => setEditorSelection(null)}
+          projectName={currentProject}
         />
       </div>
       

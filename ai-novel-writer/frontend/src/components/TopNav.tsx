@@ -1,7 +1,7 @@
-import React from 'react';
-import { Search, Settings, User } from 'lucide-react';
+import type { FC } from 'react';
+import { Search, Settings } from 'lucide-react';
 
-export const TopNav: React.FC = () => {
+export const TopNav: FC = () => {
   return (
     <nav className="h-12 bg-[#252526] border-b border-[#3e3e42] flex items-center px-4 justify-between">
       <div className="flex items-center gap-6">

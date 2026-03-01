@@ -13,6 +13,11 @@ load_dotenv()
 class FileContent(BaseModel):
     content: str
 
+class RenameRequest(BaseModel):
+    project_name: str
+    old_path: str  # 相对于项目根目录的路径，如 "创作区/正文/第1章/大纲.md"
+    new_path: str  # 相对于项目根目录的路径，如 "创作区/正文/第1章/章节大纲.md"
+
 app = FastAPI(
     title="AI Novel Writer API",
     description="Backend API for AI Novel Writer",
@@ -247,17 +252,24 @@ async def create_file_or_folder(path: str, type: str = "file"):
 
 
 @app.post("/api/files/rename")
-async def rename_file_or_folder(old_path: str, new_path: str):
+async def rename_file_or_folder(request: RenameRequest):
     """重命名或移动文件/文件夹"""
-    old_target = Path(old_path)
-    new_target = Path(new_path)
+    # 构建完整的绝对路径
+    project_path = NOVELS_DIR / request.project_name
     
-    # 安全检查
+    # 将相对路径转换为绝对路径（处理 Windows 和 Unix 路径分隔符）
+    old_relative = request.old_path.replace('/', os.sep)
+    new_relative = request.new_path.replace('/', os.sep)
+    
+    old_target = (project_path / old_relative).resolve()
+    new_target = (project_path / new_relative).resolve()
+    
+    # 安全检查 - 确保路径在项目目录内
     try:
-        old_target.relative_to(NOVELS_DIR)
-        new_target.relative_to(NOVELS_DIR)
+        old_target.relative_to(project_path.resolve())
+        new_target.relative_to(project_path.resolve())
     except ValueError:
-        raise HTTPException(status_code=403, detail="Access denied")
+        raise HTTPException(status_code=403, detail="Access denied: path outside project")
     
     # 检查源文件是否存在
     if not old_target.exists():

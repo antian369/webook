@@ -15,12 +15,13 @@ class LLMProvider(ABC):
         self.model = model
     
     @abstractmethod
-    async def chat(self, messages: List[Message]) -> str:
+    async def chat(self, messages: List[Message], temperature: float = 0.7) -> str:
         """
         发送消息列表到 LLM，返回回复内容
         
         Args:
             messages: 消息列表，包含 system、user、assistant
+            temperature: 采样温度，0-1之间，越高越随机
             
         Returns:
             AI 的回复文本

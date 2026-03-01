@@ -21,7 +21,8 @@ export const InputDialog: React.FC<InputDialogProps> = ({
 
   useEffect(() => {
     if (visible) {
-      setValue(defaultValue);
+      const timer = setTimeout(() => setValue(defaultValue), 0);
+      return () => clearTimeout(timer);
     }
   }, [visible, defaultValue]);
 

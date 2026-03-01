@@ -243,6 +243,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return trimmed;
   };
   
+  // 从绝对路径提取相对项目根目录的路径
+  const getRelativePath = (absolutePath: string): string => {
+    // 路径格式: .../novels/ProjectName/相对路径
+    // 或者: ...\novels\ProjectName\相对路径 (Windows)
+    const normalizedPath = absolutePath.replace(/\\/g, '/');
+    const parts = normalizedPath.split('/');
+    const projectIndex = parts.findIndex(p => p === currentProject);
+    if (projectIndex === -1 || projectIndex >= parts.length - 1) {
+      return '';
+    }
+    return parts.slice(projectIndex + 1).join('/');
+  };
+
   // 处理输入对话框确认
   const handleInputConfirm = async (value: string) => {
     if (!contextMenu.node || !inputDialog.action) return;
@@ -265,8 +278,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         const newPath = `${parentPath}/${value.trim()}`;
         await api.createFileOrFolder(newPath, 'directory');
       } else if (inputDialog.action === 'rename') {
-        const oldPath = contextMenu.node.path;
-        // 如果是文件，也处理扩展名
+        // 提取相对路径
+        const oldRelativePath = getRelativePath(contextMenu.node.path);
+        const parentRelativePath = contextMenu.node.is_directory
+          ? oldRelativePath
+          : oldRelativePath.substring(0, oldRelativePath.lastIndexOf('/'));
+        
+        // 如果是文件，处理扩展名
         let newName = value.trim();
         if (!contextMenu.node.is_directory) {
           newName = processFileName(newName);
@@ -275,8 +293,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             return;
           }
         }
-        const newPath = `${parentPath}/${newName}`;
-        await api.renameFileOrFolder(oldPath, newPath);
+        
+        const newRelativePath = parentRelativePath 
+          ? `${parentRelativePath}/${newName}` 
+          : newName;
+        
+        await api.renameFileOrFolder(currentProject, oldRelativePath, newRelativePath);
       }
       
       onFilesChanged();
