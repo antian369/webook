@@ -280,9 +280,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       } else if (inputDialog.action === 'rename') {
         // 提取相对路径
         const oldRelativePath = getRelativePath(contextMenu.node.path);
-        const parentRelativePath = contextMenu.node.is_directory
-          ? oldRelativePath
-          : oldRelativePath.substring(0, oldRelativePath.lastIndexOf('/'));
+        // 获取父目录路径（无论是文件还是目录都需要）
+        const lastSlashIndex = oldRelativePath.lastIndexOf('/');
+        const parentRelativePath = lastSlashIndex > 0
+          ? oldRelativePath.substring(0, lastSlashIndex)
+          : '';
         
         // 如果是文件，处理扩展名
         let newName = value.trim();
